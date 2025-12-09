@@ -3,7 +3,7 @@ import pandas as pd
 import plotly.express as px
 
 # --- CONFIGURAÇÃO GLOBAL ---
-st.set_page_config(page_title="Dashboard Café Prevision", layout="wide")
+st.set_page_config(page_title="Prevision X LIB", layout="wide")
 
 # Estilo CSS
 st.markdown("""
@@ -128,7 +128,7 @@ if modo_visualizacao == "Análise Prevision":
                 config_grupos = [
                     ("Total Mapeado", "ALL_ROWS"),
                     ("Total ICPs", c_icp),
-                    ("ICPs Quentes", c_icp_quente),
+                    ("Oportunidades Quentes", c_icp_quente),
                     ("Oportunidades (Geral)", c_oportunidade),
                     ("Clientes Prevision", c_prev),
                     ("Clientes Ecossistema (Só Parceiros)", c_ecos)
@@ -202,7 +202,7 @@ if modo_visualizacao == "Análise Prevision":
                 msg_filtro = ""
 
                 with c_matriz:
-                    st.subheader("Matriz Interativa")
+                    st.subheader("Matriz")
                     if not df_matriz_source.empty:
                         matriz_final = pd.crosstab(df_matriz_source['Porte'], df_matriz_source['Status'])
                         fig_heat = px.imshow(matriz_final, text_auto=True, aspect="auto", color_continuous_scale='Viridis')
@@ -307,7 +307,7 @@ elif modo_visualizacao == "Análise LIB":
                 kp1, kp2, kp3 = st.columns(3)
                 kp1.metric("Total Base Mapeada", total_base)
                 kp2.metric("Oportunidades Quentes", qtd_quentes, f"Portes: {', '.join(map(str, portes_quentes))}")
-                kp3.metric("Já são Clientes Prevision", qtd_mutuos)
+                kp3.metric("Já são Clientes LIB", qtd_mutuos)
                 
                 st.markdown("---")
                 c1, c2 = st.columns(2)
@@ -323,7 +323,7 @@ elif modo_visualizacao == "Análise LIB":
                     st.plotly_chart(fig_p, use_container_width=True)
                     
                 with c2:
-                    st.subheader("Distribuição por Porte (Base LIB)")
+                    st.subheader("Distribuição por Porte")
                     contagem_porte = df_parceiro[c_porte_p].value_counts().reset_index()
                     contagem_porte.columns = ['Porte', 'Qtd']
                     fig_pie_p = px.pie(contagem_porte, names='Porte', values='Qtd', hole=0.4)
