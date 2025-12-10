@@ -96,7 +96,7 @@ if modo_visualizacao == "Análise Prevision":
                 ("Total Mapeado", "ALL_ROWS"),
                 ("Total ICPs", c_icp),
                 ("Oportunidades Quentes", c_icp_quente),
-                ("ICP", c_oportunidade),
+                ("Oportunidades (Geral)", c_oportunidade),
                 ("Clientes Prevision", c_prev),
                 ("Clientes Ecossistema", c_ecos)
             ]
@@ -294,7 +294,7 @@ elif modo_visualizacao == "Análise LIB":
 
             # --- MAPA ---
             st.markdown("---")
-            st.subheader("📍 Geografia das Oportunidades")
+            st.subheader("📍 Visão por Estado")
             selection_mapa = None
             
             if c_uf_p in df_parceiro.columns:
