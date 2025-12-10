@@ -68,17 +68,25 @@ if modo_visualizacao == "Análise LIB":
             df = pd.read_excel(arquivo_carregado, sheet_name="Clientes")
             
             # --- DEFINIÇÃO DIRETA DAS COLUNAS (HARDCODED) ---
+            # Identificação
             c_cliente = "Cliente"
             c_porte = "Porte"
             c_cidade = "Cidade"
             c_mercado = "Mercado de atuação"
             c_obras = "Obras Contratadas"
             
+            # Detalhes Prevision (Novos)
+            c_plano = "Plano"
+            c_erp = "ERP"
+            c_upsell = "Último Upsell"
+            c_data_ganho = "Data de Ganho"
+            
             # Flags
             c_icp = "ICP"
+            c_fora_icp = "Fora ICP" # Nova Coluna
             c_icp_quente = "Prospect Quente"
             c_oportunidade = "Oportunidade"
-            c_prev = "É Cliente Prevision?"  # Atenção ao '?'
+            c_prev = "É Cliente Prevision?" 
             c_ecos = "É cliente Ecossistema"
 
             # --- PROCESSAMENTO ---
@@ -91,9 +99,11 @@ if modo_visualizacao == "Análise LIB":
             val_ecos_merged = val_prev + val_ecos_only
 
             # Preparação para Gráficos
+            # Adicionei "Fora ICP" aqui na lista
             config_grupos = [
                 ("Total Mapeado", "ALL_ROWS"),
                 ("Total ICPs", c_icp),
+                ("Fora ICP", c_fora_icp), # Novo item no gráfico
                 ("Oportunidades Quentes", c_icp_quente),
                 ("Oportunidades (Geral)", c_oportunidade),
                 ("Clientes Ecossistema Starian", c_ecos),
@@ -125,19 +135,12 @@ if modo_visualizacao == "Análise LIB":
             # --- VISUALIZAÇÃO ---
             st.divider()
 
-            # REMOVI O st.info DAQUI
-            
             k1, k2, k3, k4, k5 = st.columns(5)
             k1.metric("Total Mapeado", val_total)
             k2.metric("ICPs", val_icp)
-            
-            # ADICIONEI O TOOLTIP (help) DENTRO DA MÉTRICA
             k3.metric("Oportunidades Quentes", val_hot, 
                       help="Critérios: ICP, Porte Médio+, Último contato com LIB em 24/25 e não é Cliente")
-            
             k4.metric("Clientes Prevision", val_prev)
-            
-            # ADICIONEI O TOOLTIP (help) DENTRO DA MÉTRICA
             k5.metric("Clientes Ecossistema", val_ecos_merged, 
                       help="Critérios: Prevision + Ecossistema Starian")
             
@@ -199,12 +202,15 @@ if modo_visualizacao == "Análise LIB":
                 
                 if not df_filtrado_show.empty:
                     st.info(msg_filtro if filtro_ativo else "Listando Grupo Inteiro")
-                    # Colunas fixas conforme solicitado
-                    cols_view = [c for c in [c_cliente, c_porte, c_cidade, c_mercado, c_obras] if c in df.columns]
+                    # Adicionando as novas colunas na visualização da tabela
+                    cols_desejadas = [c_cliente, c_porte, c_cidade, c_mercado, c_obras, 
+                                      c_plano, c_erp, c_upsell, c_data_ganho] # Novas colunas aqui
+                    
+                    cols_view = [c for c in cols_desejadas if c in df.columns]
                     st.dataframe(df_filtrado_show[cols_view], hide_index=True, use_container_width=True, height=300)
 
         except Exception as e:
-            st.error(f"Erro ao ler aba 'Clientes'. Verifique se o nome da aba está correto. Detalhe: {e}")
+            st.error(f"Erro ao ler aba 'Clientes'. Detalhe: {e}")
 
 # ==============================================================================
 # MODO 2: ANÁLISE LIB (PARCEIRO - NOMEADA COMO 'ANÁLISE PREVISION' NO MENU)
@@ -224,9 +230,15 @@ elif modo_visualizacao == "Análise Prevision":
             c_cidade_p = "Cidade"
             c_tipologia_p = "Tipologia"
             c_obras_p = "Obras Contratadas"
-            c_mutuo = "Cliente LIB" # Coluna que diz se já é cliente prevision
+            c_mutuo = "Cliente LIB" 
+            
+            # Colunas Novas (LIB)
+            c_servico = "Serviço Vendido"
+            c_ano_proj = "Ano do Último Projeto"
+            c_contato = "Atual contato"
+            c_solucoes = "Solucoes Starian"
 
-            # --- SELETOR DE PARAMETROS (Mantive pois é filtro dinâmico) ---
+            # --- SELETOR DE PARAMETROS ---
             st.sidebar.header("Parâmetros de Análise")
             todos_portes = df_parceiro[c_porte_p].dropna().unique().tolist()
             padrao_quentes = ['G1', 'G2', 'G3', 'M2', 'M3']
@@ -256,8 +268,6 @@ elif modo_visualizacao == "Análise Prevision":
             kp1, kp2, kp3 = st.columns(3)
             kp1.metric("Total Mapeado", total_base)
             kp2.metric("ICPs", qtd_quentes)
-            
-            # ADICIONEI O TOOLTIP (help) DENTRO DA MÉTRICA, REMOVI O st.info
             kp3.metric("Clientes LIB", qtd_mutuos, help="Apenas Clientes Prevision+Lib")
             
             st.markdown("---")
@@ -297,7 +307,6 @@ elif modo_visualizacao == "Análise Prevision":
             
             if not df_matriz_source_lib.empty:
                 matriz_final_lib = pd.crosstab(df_matriz_source_lib['Porte'], df_matriz_source_lib['Status'])
-                # Ordena para Total ficar primeiro
                 cols = sorted(matriz_final_lib.columns.tolist())
                 if "Total Mapeado" in cols:
                     cols.remove("Total Mapeado")
@@ -343,7 +352,6 @@ elif modo_visualizacao == "Análise Prevision":
             df_filtrado_final = df_parceiro.copy()
             msg_filtro = "Mostrando base completa"
 
-            # Filtro da Matriz
             if selection_matriz and "selection" in selection_matriz and selection_matriz["selection"]["points"]:
                 pts = selection_matriz["selection"]["points"][0]
                 status_c = pts['x']
@@ -352,7 +360,6 @@ elif modo_visualizacao == "Análise Prevision":
                 df_filtrado_final = df_filtrado_final[df_filtrado_final[c_cliente_p].isin(clientes_alvo)]
                 msg_filtro = f"Matriz: {status_c} + {porte_c}"
             
-            # Filtro do Mapa (Prioritário)
             elif selection_mapa and "selection" in selection_mapa and selection_mapa["selection"]["points"]:
                 pts = selection_mapa["selection"]["points"][0]
                 uf_clicada = pts.get('location', pts.get('x'))
@@ -361,7 +368,11 @@ elif modo_visualizacao == "Análise Prevision":
                     msg_filtro = f"Mapa: Estado {uf_clicada}"
 
             with st.expander(f"🔎 Detalhes da Base ({msg_filtro})", expanded=True):
-                cols_view = [c for c in [c_cliente_p, c_porte_p, c_uf_p, c_cidade_p, c_tipologia_p, c_obras_p] if c in df_filtrado_final.columns]
+                # Adicionando as novas colunas aqui também
+                cols_desejadas = [c_cliente_p, c_porte_p, c_uf_p, c_cidade_p, c_tipologia_p, c_obras_p,
+                                  c_servico, c_ano_proj, c_contato, c_solucoes] # Novas colunas
+                
+                cols_view = [c for c in cols_desejadas if c in df_filtrado_final.columns]
                 st.dataframe(df_filtrado_final[cols_view], hide_index=True, use_container_width=True)
 
         except Exception as e:
