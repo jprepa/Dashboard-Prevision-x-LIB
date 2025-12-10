@@ -77,7 +77,7 @@ if modo_visualizacao == "Análise Prevision":
             c_plano = "Plano"
             c_erp = "ERP"
             c_upsell = "Último Upsell"
-            c_data_ganho = "Data de Ganho" # Verifique se o nome na planilha é esse ou "Data de Ganho"
+            c_data_ganho = "Data de Ganho" 
             
             # Flags
             c_icp = "ICP"
@@ -96,7 +96,6 @@ if modo_visualizacao == "Análise Prevision":
             val_ecos_merged = val_prev + val_ecos_only
 
             # Preparação para Gráficos e Matriz
-            # Nota: Adicionado "Oportunidades Quentes" aqui garante que apareça na Matriz
             config_grupos = [
                 ("Total Mapeado", "ALL_ROWS"),
                 ("Total ICPs", c_icp),
@@ -115,7 +114,7 @@ if modo_visualizacao == "Análise Prevision":
                 elif col_excel in df.columns:
                     filtro = df[df[col_excel].apply(is_true)]
                 else:
-                    filtro = pd.DataFrame() # Coluna não existe
+                    filtro = pd.DataFrame() 
                 
                 if not filtro.empty:
                     resumo_barras['Categoria'].append(nome_grupo)
@@ -201,7 +200,7 @@ if modo_visualizacao == "Análise Prevision":
                     # Filtra apenas as que existem no excel para não dar erro
                     cols_view = [c for c in colunas_desejadas if c in df.columns]
                     
-                    st.dataframe(df_filtrado_show[cols_view], hide_index=True, use_container_width=True, height=300)
+                    st.dataframe(df_filtrado_show[cols_view], hide_index=True, use_container_width=True)
 
         except Exception as e:
             st.error(f"Erro ao ler aba 'Clientes'. Detalhe: {e}")
@@ -244,22 +243,23 @@ elif modo_visualizacao == "Análise LIB":
             # --- CÁLCULOS ---
             total_base = len(df_parceiro)
             
-            # Clientes Mútuos
+            # 1. Clientes Mútuos (Correção do Erro Aqui)
             if c_mutuo in df_parceiro.columns:
                 df_parceiro['Is_Cliente'] = df_parceiro[c_mutuo].apply(is_true)
                 mutual_clients = df_parceiro[df_parceiro['Is_Cliente']]
                 qtd_mutuos = len(mutual_clients)
             else:
                 df_parceiro['Is_Cliente'] = False
+                mutual_clients = pd.DataFrame() # <-- AQUI ESTAVA O ERRO (Agora inicializa vazia)
                 qtd_mutuos = 0
             
-            # Fora ICP
+            # 2. Fora ICP
             if c_fora_icp in df_parceiro.columns:
                 qtd_fora_icp = len(df_parceiro[df_parceiro[c_fora_icp].apply(is_true)])
             else:
                 qtd_fora_icp = 0
 
-            # Oportunidades Quentes
+            # 3. Oportunidades Quentes
             df_parceiro['Is_Quente'] = df_parceiro[c_porte_p].isin(portes_quentes)
             oportunidades_quentes = df_parceiro[df_parceiro['Is_Quente']]
             qtd_quentes = len(oportunidades_quentes)
@@ -300,11 +300,15 @@ elif modo_visualizacao == "Análise LIB":
             st.markdown("---")
             st.subheader("Matriz Porte x Status")
             
+            # Garante que mutual_clients existe antes de usar aqui
             grupos_lib = [("Total Mapeado", df_parceiro), ("Clientes LIB", mutual_clients)]
             lista_matriz_lib = []
+            
+            # Bloco seguro para criar matriz
             for nome, dff in grupos_lib:
-                for _, row in dff.iterrows():
-                        lista_matriz_lib.append({'Porte': row[c_porte_p], 'Status': nome, 'Cliente': row[c_cliente_p]})
+                if not dff.empty:
+                    for _, row in dff.iterrows():
+                            lista_matriz_lib.append({'Porte': row[c_porte_p], 'Status': nome, 'Cliente': row[c_cliente_p]})
             
             df_matriz_source_lib = pd.DataFrame(lista_matriz_lib)
             selection_matriz = None
@@ -361,9 +365,11 @@ elif modo_visualizacao == "Análise LIB":
                 pts = selection_matriz["selection"]["points"][0]
                 status_c = pts['x']
                 porte_c = pts['y']
-                clientes_alvo = df_matriz_source_lib[(df_matriz_source_lib['Status']==status_c) & (df_matriz_source_lib['Porte']==porte_c)]['Cliente'].unique()
-                df_filtrado_final = df_filtrado_final[df_filtrado_final[c_cliente_p].isin(clientes_alvo)]
-                msg_filtro = f"Matriz: {status_c} + {porte_c}"
+                # Garante que a matriz source tem dados antes de filtrar
+                if not df_matriz_source_lib.empty:
+                    clientes_alvo = df_matriz_source_lib[(df_matriz_source_lib['Status']==status_c) & (df_matriz_source_lib['Porte']==porte_c)]['Cliente'].unique()
+                    df_filtrado_final = df_filtrado_final[df_filtrado_final[c_cliente_p].isin(clientes_alvo)]
+                    msg_filtro = f"Matriz: {status_c} + {porte_c}"
             
             # Filtro do Mapa (Prioritário)
             elif selection_mapa and "selection" in selection_mapa and selection_mapa["selection"]["points"]:
