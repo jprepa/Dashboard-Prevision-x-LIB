@@ -17,6 +17,8 @@ div[data-testid="metric-container"] {
     border-radius: 8px;
     box-shadow: 2px 2px 5px rgba(0,0,0,0.3);
 }
+/* Ajuste para remover bordas brancas de iframes se houver */
+iframe { border: none !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -211,7 +213,7 @@ if modo_visualizacao == "Análise Prevision":
             st.error(f"Erro no Painel Prevision: {e}")
 
 # ==============================================================================
-# MODO 2: ANÁLISE LIB (PARCEIRO) - COM MAPA
+# MODO 2: ANÁLISE LIB (PARCEIRO) - COM MAPA AJUSTADO
 # ==============================================================================
 elif modo_visualizacao == "Análise LIB":
     st.title("📊 Painel Estratégico LIB")
@@ -233,11 +235,11 @@ elif modo_visualizacao == "Análise LIB":
                 
                 idx_cli_p = get_index(cols_p, "Cliente")
                 idx_prt_p = get_index(cols_p, "Porte")
-                idx_uf_p = get_index(cols_p, ["Estado", "UF", "U.F.", "State"]) # NOVO
+                idx_uf_p = get_index(cols_p, ["Estado", "UF", "U.F.", "State"])
                 
                 c_cliente_p = st.sidebar.selectbox("Coluna Cliente:", cols_p, index=idx_cli_p, key="cli_p")
                 c_porte_p = st.sidebar.selectbox("Coluna Porte:", cols_p, index=idx_prt_p, key="porte_p")
-                c_uf_p = st.sidebar.selectbox("Coluna Estado (UF):", cols_p, index=idx_uf_p, key="uf_p") # NOVO
+                c_uf_p = st.sidebar.selectbox("Coluna Estado (UF):", cols_p, index=idx_uf_p, key="uf_p")
 
                 cols_mutuo_opts = ["(Não existe)"] + cols_p
                 def get_mutuo_index():
@@ -257,7 +259,6 @@ elif modo_visualizacao == "Análise LIB":
                 # --- CÁLCULOS ---
                 total_base = len(df_parceiro)
                 
-                # Identifica Clientes e Oportunidades
                 if c_mutuo != "(Não existe)":
                     df_parceiro['Is_Cliente'] = df_parceiro[c_mutuo].apply(is_true)
                     mutual_clients = df_parceiro[df_parceiro['Is_Cliente']]
@@ -278,48 +279,6 @@ elif modo_visualizacao == "Análise LIB":
                 kp3.metric("Clientes LIB", qtd_mutuos)
                 
                 st.markdown("---")
-                
-                # --- NOVO: MAPA DO BRASIL ---
-                st.subheader("📍 Geografia das Oportunidades")
-                
-                # 1. Preparar dados para o mapa
-                if c_uf_p:
-                    # Agrupa por Estado e conta Clientes e Oportunidades
-                    df_mapa = df_parceiro.groupby(c_uf_p).apply(
-                        lambda x: pd.Series({
-                            'Total Clientes': x['Is_Cliente'].sum(),
-                            'Oportunidades Quentes': x['Is_Quente'].sum()
-                        })
-                    ).reset_index()
-                    
-                    # Renomeia para facilitar plotagem
-                    df_mapa.rename(columns={c_uf_p: 'UF'}, inplace=True)
-                    
-                    # Carrega GeoJSON
-                    with st.spinner("Carregando mapa..."):
-                        brazil_states = carregar_mapa_brasil()
-                    
-                    # Plota o Mapa
-                    # featureidkey='properties.sigla' é o padrão desse GeoJSON específico
-                    fig_map = px.choropleth(
-                        df_mapa,
-                        geojson=brazil_states,
-                        locations='UF',
-                        featureidkey='properties.sigla',
-                        color='Oportunidades Quentes', # A cor depende de quantas opps quentes tem
-                        hover_data=['Total Clientes', 'Oportunidades Quentes'],
-                        color_continuous_scale="Reds",
-                        title="Calor de Oportunidades Quentes por Estado"
-                    )
-                    # Ajusta o zoom para focar no Brasil
-                    fig_map.update_geos(fitbounds="locations", visible=False)
-                    fig_map.update_layout(margin={"r":0,"t":30,"l":0,"b":0})
-                    
-                    st.plotly_chart(fig_map, use_container_width=True)
-                else:
-                    st.warning("Selecione a coluna de Estado (UF) para ver o mapa.")
-
-                st.markdown("---")
                 c1, c2 = st.columns(2)
                 with c1:
                     st.subheader("Potencial da Base")
@@ -338,6 +297,63 @@ elif modo_visualizacao == "Análise LIB":
 
                 with st.expander("🔎 Ver Lista de Oportunidades Quentes"):
                     st.dataframe(oportunidades_quentes[[c_cliente_p, c_porte_p]], hide_index=True, use_container_width=True)
+
+                st.markdown("---")
+                
+                # --- NOVO: MAPA DO BRASIL NO FINAL ---
+                st.subheader("📍 Geografia das Oportunidades")
+                
+                if c_uf_p:
+                    # Cálculo avançado para o mapa
+                    df_mapa = df_parceiro.groupby(c_uf_p).apply(
+                        lambda x: pd.Series({
+                            'Total_Linhas': len(x),
+                            'Qtd_Clientes': x['Is_Cliente'].sum(),
+                            'Qtd_Quentes': x['Is_Quente'].sum()
+                        })
+                    ).reset_index()
+                    
+                    df_mapa.rename(columns={c_uf_p: 'UF'}, inplace=True)
+                    
+                    # Cálculo: Opp Geral = Total Linhas - Quentes
+                    df_mapa['Oportunidades Geral'] = df_mapa['Total_Linhas'] - df_mapa['Qtd_Quentes']
+                    
+                    # Carrega GeoJSON
+                    with st.spinner("Carregando mapa..."):
+                        brazil_states = carregar_mapa_brasil()
+                    
+                    # Plota o Mapa com fundo transparente
+                    fig_map = px.choropleth(
+                        df_mapa,
+                        geojson=brazil_states,
+                        locations='UF',
+                        featureidkey='properties.sigla',
+                        color='Qtd_Quentes', # Cor baseada no calor
+                        color_continuous_scale="Reds",
+                        title="Calor de Oportunidades Quentes por Estado"
+                    )
+                    
+                    # Customização do Tooltip (Hover)
+                    fig_map.update_traces(
+                        hovertemplate="<b>%{location}</b><br><br>" +
+                        "Oportunidades Geral: %{customdata[0]}<br>" +
+                        "Oportunidades Quentes: %{z}<br>" +
+                        "Clientes LIB+Prevision: %{customdata[1]}<extra></extra>",
+                        customdata=df_mapa[['Oportunidades Geral', 'Qtd_Clientes']]
+                    )
+                    
+                    # Ajuste fino visual (Transparência total)
+                    fig_map.update_geos(fitbounds="locations", visible=False)
+                    fig_map.update_layout(
+                        margin={"r":0,"t":30,"l":0,"b":0},
+                        paper_bgcolor='rgba(0,0,0,0)', # Fundo transparente
+                        plot_bgcolor='rgba(0,0,0,0)',
+                        geo=dict(bgcolor='rgba(0,0,0,0)')
+                    )
+                    
+                    st.plotly_chart(fig_map, use_container_width=True)
+                else:
+                    st.warning("Selecione a coluna de Estado (UF) para ver o mapa.")
 
         except Exception as e:
             st.error(f"Erro no Painel LIB: {e}")
