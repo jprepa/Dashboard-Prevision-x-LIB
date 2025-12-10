@@ -2,12 +2,13 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 import json
+import os
 from urllib.request import urlopen
 
 # --- CONFIGURAÇÃO GLOBAL ---
 st.set_page_config(page_title="Prevision X LIB", layout="wide")
 
-# Estilo CSS
+# Estilo CSS (Limpo e Profissional)
 st.markdown("""
 <style>
 div[data-testid="metric-container"] {
@@ -25,34 +26,35 @@ iframe { border: none !important; }
 
 @st.cache_data
 def carregar_mapa_brasil():
+    """Baixa o mapa do Brasil apenas uma vez."""
     url = "https://raw.githubusercontent.com/codeforamerica/click_that_hood/master/public/data/brazil-states.geojson"
     with urlopen(url) as response:
         brazil_states = json.load(response)
     return brazil_states
 
 def is_true(val):
+    """Verifica se o valor é Sim/True de forma robusta."""
     texto = str(val).strip().lower()
     aceitos = ['sim', 's', 'yes', 'y', 'verdadeiro', 'true', 'ativo', '1', '1.0']
     return texto in aceitos
 
-def get_index(lista_colunas, nomes_buscados):
-    if isinstance(nomes_buscados, str):
-        nomes_buscados = [nomes_buscados]
-    for nome in nomes_buscados:
-        if nome in lista_colunas:
-            return lista_colunas.index(nome)
-        for i, col_real in enumerate(lista_colunas):
-            if str(col_real).strip().lower() == str(nome).strip().lower():
-                return i
-    return 0 
+# --- CARREGAMENTO DE DADOS ---
+NOME_ARQUIVO = "base_dados.xlsx"
 
-# --- BARRA LATERAL ---
-st.sidebar.title("🎛️ Controle do Painel")
-modo_visualizacao = st.sidebar.radio("Qual visão você deseja?", ["Análise Prevision", "Análise LIB"])
-
+st.sidebar.title("🎛️ Navegação")
+modo_visualizacao = st.sidebar.radio("Selecione a Visão:", ["Análise Prevision", "Análise LIB"])
 st.sidebar.markdown("---")
-st.sidebar.header("1. Carregar Arquivo")
-uploaded_file = st.sidebar.file_uploader("Suba o arquivo Excel", type=["xlsx", "xls"])
+
+# Lógica Híbrida: Tenta carregar automático, senão pede upload
+df_bruto = None
+arquivo_carregado = None
+
+if os.path.exists(NOME_ARQUIVO):
+    arquivo_carregado = NOME_ARQUIVO
+    st.sidebar.success(f"📂 Dados carregados: {NOME_ARQUIVO}")
+else:
+    st.sidebar.warning(f"Arquivo '{NOME_ARQUIVO}' não encontrado.")
+    arquivo_carregado = st.sidebar.file_uploader("Faça upload da planilha:", type=["xlsx", "xls"])
 
 # ==============================================================================
 # MODO 1: ANÁLISE PREVISION (INTERNA)
@@ -60,382 +62,295 @@ uploaded_file = st.sidebar.file_uploader("Suba o arquivo Excel", type=["xlsx", "
 if modo_visualizacao == "Análise Prevision":
     st.title("📊 Painel Estratégico Prevision")
     
-    if uploaded_file is not None:
+    if arquivo_carregado:
         try:
-            excel_file = pd.ExcelFile(uploaded_file)
-            abas = excel_file.sheet_names
-            idx_aba = abas.index("Clientes") if "Clientes" in abas else 0
-            selected_sheet = st.sidebar.selectbox("Escolha a aba:", abas, index=idx_aba, key="sheet_internal")
-            df = pd.read_excel(uploaded_file, sheet_name=selected_sheet)
+            # Tenta ler a aba 'Clientes'
+            df = pd.read_excel(arquivo_carregado, sheet_name="Clientes")
             
-            if df.empty:
-                st.error("Aba vazia.")
-            else:
-                st.sidebar.markdown("---")
-                st.sidebar.header("Mapear Colunas")
-                cols = df.columns.tolist()
-                
-                # Identificação Básica
-                idx_cli = get_index(cols, ["Cliente", "Nome Fantasia", "Empresa"])
-                idx_prt = get_index(cols, ["Porte", "CNPJ", "Tamanho"])
-                
-                c_cliente = st.sidebar.selectbox("Nome do Cliente:", cols, index=idx_cli, key="cli_in")
-                c_porte = st.sidebar.selectbox("Porte:", cols, index=idx_prt, key="porte_in")
-                
-                # NOVAS COLUNAS PEDIDAS (PREVISION)
-                idx_cid = get_index(cols, ["Cidade", "City", "Município"])
-                idx_mkt = get_index(cols, ["Mercado", "Mercado de atuação", "Atuação"])
-                idx_obr = get_index(cols, ["Obras", "Obras Contratadas", "Qtd Obras"])
-                
-                st.sidebar.markdown("##### Dados Adicionais (Tabela)")
-                c_cidade = st.sidebar.selectbox("Cidade:", cols, index=idx_cid, key="cid_in")
-                c_mercado = st.sidebar.selectbox("Mercado de Atuação:", cols, index=idx_mkt, key="mkt_in")
-                c_obras = st.sidebar.selectbox("Obras Contratadas:", cols, index=idx_obr, key="obr_in")
-                
-                st.sidebar.markdown("---")
-                st.sidebar.info("Colunas de Flags (Sim/Não)")
-                cols_flags = ["(Não usar)"] + cols
-                
-                def get_flag_index(target_names):
-                    idx_found = get_index(cols, target_names)
-                    if idx_found == 0:
-                        first_col_name = cols[0]
-                        if any(t.lower() == str(first_col_name).lower() for t in target_names):
-                            return 1
-                        return 0
-                    return idx_found + 1
+            # --- DEFINIÇÃO DIRETA DAS COLUNAS (HARDCODED) ---
+            # Ajuste aqui se mudar o nome na planilha
+            c_cliente = "Cliente"
+            c_porte = "Porte"
+            c_cidade = "Cidade"
+            c_mercado = "Mercado de atuação"
+            c_obras = "Obras Contratadas"
+            
+            # Flags
+            c_icp = "ICP"
+            c_icp_quente = "Prospect Quente"
+            c_oportunidade = "Oportunidade"
+            c_prev = "É Cliente Prevision?"  # Atenção ao '?'
+            c_ecos = "É cliente Ecossistema"
 
-                idx_icp = get_flag_index(["ICP", "É ICP?", "Perfil Ideal"])
-                idx_hot = get_flag_index(["Prospect Quente", "Quente", "Hot", "Prioridade"])
-                idx_opp = get_flag_index(["Oportunidade", "Opp", "Negócio"])
-                idx_prev = get_flag_index(["É Cliente Prevision?", "É Cliente Prevision", "Cliente Prevision", "Já é Cliente?"])
-                idx_ecos = get_flag_index(["É cliente Ecossistema", "Ecossistema", "Cliente Ecossistema", "Parceiro"])
+            # --- PROCESSAMENTO ---
+            val_total = len(df)
+            val_icp = len(df[df[c_icp].apply(is_true)]) if c_icp in df.columns else 0
+            val_hot = len(df[df[c_icp_quente].apply(is_true)]) if c_icp_quente in df.columns else 0
+            val_opp = len(df[df[c_oportunidade].apply(is_true)]) if c_oportunidade in df.columns else 0
+            val_prev = len(df[df[c_prev].apply(is_true)]) if c_prev in df.columns else 0
+            val_ecos_only = len(df[df[c_ecos].apply(is_true)]) if c_ecos in df.columns else 0
+            val_ecos_merged = val_prev + val_ecos_only
 
-                c_icp = st.sidebar.selectbox("Coluna Total ICPs:", cols_flags, index=idx_icp)
-                c_icp_quente = st.sidebar.selectbox("Coluna ICP Quente (18):", cols_flags, index=idx_hot)
-                c_oportunidade = st.sidebar.selectbox("Coluna Oportunidade (30):", cols_flags, index=idx_opp)
-                c_prev = st.sidebar.selectbox("Coluna Cliente Prevision (6):", cols_flags, index=idx_prev)
-                c_ecos = st.sidebar.selectbox("Coluna Cliente Ecossistema:", cols_flags, index=idx_ecos)
+            # Preparação para Gráficos
+            config_grupos = [
+                ("Total Mapeado", "ALL_ROWS"),
+                ("Total ICPs", c_icp),
+                ("Oportunidades Quentes", c_icp_quente),
+                ("ICP", c_oportunidade),
+                ("Clientes Prevision", c_prev),
+                ("Clientes Ecossistema", c_ecos)
+            ]
+            
+            resumo_barras = {'Categoria': [], 'Quantidade': [], 'Lista_Clientes': []}
+            lista_matriz = []
+            
+            for nome_grupo, col_excel in config_grupos:
+                if col_excel == "ALL_ROWS":
+                    filtro = df
+                elif col_excel in df.columns:
+                    filtro = df[df[col_excel].apply(is_true)]
+                else:
+                    filtro = pd.DataFrame() # Coluna não existe
                 
-                # Processamento
-                val_total = len(df)
-                val_icp = len(df[df[c_icp].apply(is_true)]) if c_icp != "(Não usar)" else 0
-                val_hot = len(df[df[c_icp_quente].apply(is_true)]) if c_icp_quente != "(Não usar)" else 0
-                val_opp = len(df[df[c_oportunidade].apply(is_true)]) if c_oportunidade != "(Não usar)" else 0
-                val_prev = len(df[df[c_prev].apply(is_true)]) if c_prev != "(Não usar)" else 0
-                val_ecos_only = len(df[df[c_ecos].apply(is_true)]) if c_ecos != "(Não usar)" else 0
-                val_ecos_merged = val_prev + val_ecos_only
+                if not filtro.empty:
+                    resumo_barras['Categoria'].append(nome_grupo)
+                    resumo_barras['Quantidade'].append(len(filtro))
+                    resumo_barras['Lista_Clientes'].append(filtro[c_cliente].tolist())
+                    
+                    for _, row in filtro.iterrows():
+                        lista_matriz.append({'Porte': row[c_porte], 'Status': nome_grupo, 'Cliente': row[c_cliente]})
 
-                config_grupos = [
-                    ("Total Mapeado", "ALL_ROWS"),
-                    ("Total ICPs", c_icp),
-                    ("Oportunidades Quentes", c_icp_quente),
-                    ("ICP", c_oportunidade),
-                    ("Clientes Prevision", c_prev),
-                    ("Clientes Ecossistema", c_ecos)
-                ]
-                
-                resumo_barras = {'Categoria': [], 'Quantidade': [], 'Lista_Clientes': []}
-                lista_matriz = []
-                
-                for nome_grupo, col_excel in config_grupos:
-                    if col_excel != "(Não usar)":
-                        if col_excel == "ALL_ROWS":
-                            filtro = df
-                        else:
-                            filtro = df[df[col_excel].apply(is_true)]
-                        
-                        resumo_barras['Categoria'].append(nome_grupo)
-                        resumo_barras['Quantidade'].append(len(filtro))
-                        resumo_barras['Lista_Clientes'].append(filtro[c_cliente].tolist())
-                        for _, row in filtro.iterrows():
-                            lista_matriz.append({'Porte': row[c_porte], 'Status': nome_grupo, 'Cliente': row[c_cliente]})
+            df_resumo = pd.DataFrame(resumo_barras)
+            df_matriz_source = pd.DataFrame(lista_matriz)
 
-                df_resumo = pd.DataFrame(resumo_barras)
-                df_matriz_source = pd.DataFrame(lista_matriz)
-
-                # Visualização
-                st.divider()
-                k1, k2, k3, k4, k5 = st.columns(5)
-                k1.metric("Total Mapeado", val_total)
-                k2.metric("Oportunidades (Geral)", val_icp)
-                k3.metric("Oportunidades Quentes", val_hot)
-                k4.metric("Clientes Prevision", val_prev)
-                k5.metric("Clientes Ecossistema", val_ecos_merged)
-                
-                st.markdown("---")
-                c_bar, c_pie = st.columns([1.5, 1])
-                with c_bar:
-                    st.subheader("Funil Geral")
+            # --- VISUALIZAÇÃO ---
+            st.divider()
+            k1, k2, k3, k4, k5 = st.columns(5)
+            k1.metric("Total Mapeado", val_total)
+            k2.metric("Oportunidades (Geral)", val_icp)
+            k3.metric("Oportunidades Quentes", val_hot)
+            k4.metric("Clientes Prevision", val_prev)
+            k5.metric("Clientes Ecossistema", val_ecos_merged)
+            
+            st.markdown("---")
+            c_bar, c_pie = st.columns([1.5, 1])
+            
+            with c_bar:
+                st.subheader("Funil Geral")
+                if not df_resumo.empty:
                     fig_bar = px.bar(df_resumo, x='Quantidade', y='Categoria', orientation='h', text='Quantidade', color='Categoria')
                     fig_bar.update_layout(showlegend=False)
                     st.plotly_chart(fig_bar, use_container_width=True)
-                with c_pie:
-                    st.subheader("Distribuição ICPs")
-                    dados_pizza = [{"Label": "Oportunidades Quentes", "Valor": val_hot}, {"Label": "Oportunidades (Geral)", "Valor": val_opp}, {"Label": "Clientes Prevision", "Valor": val_prev}]
-                    dados_pizza = [d for d in dados_pizza if d['Valor'] > 0]
-                    if dados_pizza:
-                        fig_pie = px.pie(pd.DataFrame(dados_pizza), names='Label', values='Valor', hole=0.5, color_discrete_sequence=["#00CC96", "#AB63FA", "#FFA15A"])
-                        st.plotly_chart(fig_pie, use_container_width=True)
+            
+            with c_pie:
+                st.subheader("Distribuição ICPs")
+                dados_pizza = [
+                    {"Label": "Oportunidades Quentes", "Valor": val_hot},
+                    {"Label": "Oportunidades (Geral)", "Valor": val_opp},
+                    {"Label": "Clientes Prevision", "Valor": val_prev}
+                ]
+                dados_pizza = [d for d in dados_pizza if d['Valor'] > 0]
+                if dados_pizza:
+                    fig_pie = px.pie(pd.DataFrame(dados_pizza), names='Label', values='Valor', hole=0.5, 
+                                     color_discrete_sequence=["#00CC96", "#AB63FA", "#FFA15A"])
+                    st.plotly_chart(fig_pie, use_container_width=True)
+
+            st.markdown("---")
+            c_matriz, c_lista = st.columns([1.5, 1])
+            filtro_ativo = False
+            df_filtrado_show = pd.DataFrame()
+            msg_filtro = ""
+
+            with c_matriz:
+                st.subheader("Matriz")
+                selection = None
+                if not df_matriz_source.empty:
+                    matriz_final = pd.crosstab(df_matriz_source['Porte'], df_matriz_source['Status'])
+                    fig_heat = px.imshow(matriz_final, text_auto=True, aspect="auto", color_continuous_scale='Viridis')
+                    selection = st.plotly_chart(fig_heat, use_container_width=True, on_select="rerun", selection_mode="points")
+
+            with c_lista:
+                st.subheader("Detalhes")
+                # Lógica de Filtro Matriz
+                if selection and "selection" in selection and selection["selection"]["points"]:
+                    pts = selection["selection"]["points"][0]
+                    status_c = pts['x']
+                    porte_c = pts['y']
+                    msg_filtro = f"Filtro: {status_c} + {porte_c}"
+                    clientes_alvo = df_matriz_source[(df_matriz_source['Status']==status_c) & (df_matriz_source['Porte']==porte_c)]['Cliente'].unique()
+                    df_filtrado_show = df[df[c_cliente].isin(clientes_alvo)]
+                    filtro_ativo = True
                 
-                st.markdown("---")
-                c_matriz, c_lista = st.columns([1.5, 1])
-                filtro_ativo = False
-                df_filtrado_show = pd.DataFrame()
-                msg_filtro = ""
-
-                with c_matriz:
-                    st.subheader("Matriz")
-                    if not df_matriz_source.empty:
-                        matriz_final = pd.crosstab(df_matriz_source['Porte'], df_matriz_source['Status'])
-                        fig_heat = px.imshow(matriz_final, text_auto=True, aspect="auto", color_continuous_scale='Viridis')
-                        selection = st.plotly_chart(fig_heat, use_container_width=True, on_select="rerun", selection_mode="points")
-                    else:
-                        selection = None
-
-                with c_lista:
-                    st.subheader("Detalhes")
-                    if selection:
-                        try:
-                            pts = selection.get('selection', {}).get('points', [])
-                            if not pts and 'points' in selection: pts = selection['points']
-                            if pts:
-                                p = pts[0]
-                                status_c = p['x']; porte_c = p['y']
-                                msg_filtro = f"Filtro: {status_c} + {porte_c}"
-                                clientes_alvo = df_matriz_source[(df_matriz_source['Status']==status_c) & (df_matriz_source['Porte']==porte_c)]['Cliente'].unique()
-                                df_filtrado_show = df[df[c_cliente].isin(clientes_alvo)]
-                                filtro_ativo = True
-                        except: pass
-                    
-                    if not filtro_ativo:
-                        grupo = st.selectbox("Selecione grupo:", df_resumo['Categoria'].unique(), key="sel_g_in")
-                        if grupo:
-                            row = df_resumo[df_resumo['Categoria']==grupo].iloc[0]
-                            df_filtrado_show = df[df[c_cliente].isin(row['Lista_Clientes'])]
-                    
-                    if not df_filtrado_show.empty:
-                        st.info(msg_filtro if filtro_ativo else "Listando Grupo Inteiro")
-                        # MOSTRANDO AS NOVAS COLUNAS
-                        cols_mostrar = [c_cliente, c_porte, c_cidade, c_mercado, c_obras]
-                        st.dataframe(df_filtrado_show[cols_mostrar], hide_index=True, use_container_width=True, height=300)
+                # Fallback: Filtro por Grupo
+                if not filtro_ativo and not df_resumo.empty:
+                    grupo = st.selectbox("Selecione grupo:", df_resumo['Categoria'].unique(), key="sel_g_in")
+                    if grupo:
+                        row = df_resumo[df_resumo['Categoria']==grupo].iloc[0]
+                        df_filtrado_show = df[df[c_cliente].isin(row['Lista_Clientes'])]
+                
+                if not df_filtrado_show.empty:
+                    st.info(msg_filtro if filtro_ativo else "Listando Grupo Inteiro")
+                    # Colunas fixas conforme solicitado
+                    cols_view = [c for c in [c_cliente, c_porte, c_cidade, c_mercado, c_obras] if c in df.columns]
+                    st.dataframe(df_filtrado_show[cols_view], hide_index=True, use_container_width=True, height=300)
 
         except Exception as e:
-            st.error(f"Erro no Painel Prevision: {e}")
+            st.error(f"Erro ao ler aba 'Clientes'. Verifique se o nome da aba está correto. Detalhe: {e}")
 
 # ==============================================================================
-# MODO 2: ANÁLISE LIB (PARCEIRO) - MATRIZ AJUSTADA + TABELA CORRIGIDA
+# MODO 2: ANÁLISE LIB (PARCEIRO)
 # ==============================================================================
 elif modo_visualizacao == "Análise LIB":
     st.title("📊 Painel Estratégico LIB")
     
-    if uploaded_file is not None:
+    if arquivo_carregado:
         try:
-            excel_file = pd.ExcelFile(uploaded_file)
-            abas = excel_file.sheet_names
-            idx_aba_p = abas.index("Planilha1") if "Planilha1" in abas else (1 if len(abas)>1 else 0)
-            selected_sheet = st.sidebar.selectbox("Escolha a aba:", abas, index=idx_aba_p, key="sheet_partner")
-            df_parceiro = pd.read_excel(uploaded_file, sheet_name=selected_sheet)
+            # Tenta ler a aba 'Planilha1'
+            df_parceiro = pd.read_excel(arquivo_carregado, sheet_name="Planilha1")
             
-            if df_parceiro.empty:
-                st.error("Aba vazia.")
+            # --- DEFINIÇÃO DIRETA DAS COLUNAS (HARDCODED) ---
+            c_cliente_p = "Cliente"
+            c_porte_p = "Porte"
+            c_uf_p = "Estado"
+            c_cidade_p = "Cidade"
+            c_tipologia_p = "Tipologia"
+            c_obras_p = "Obras Contratadas"
+            c_mutuo = "Cliente LIB" # Coluna que diz se já é cliente prevision
+
+            # --- SELETOR DE PARAMETROS (Mantive pois é filtro dinâmico) ---
+            st.sidebar.header("Parâmetros de Análise")
+            todos_portes = df_parceiro[c_porte_p].dropna().unique().tolist()
+            padrao_quentes = ['G1', 'G2', 'G3', 'M2', 'M3']
+            padrao_selecionado = [p for p in padrao_quentes if p in todos_portes]
+            
+            portes_quentes = st.sidebar.multiselect("Definir Portes Quentes:", options=todos_portes, default=padrao_selecionado)
+            
+            # --- CÁLCULOS ---
+            total_base = len(df_parceiro)
+            
+            # Identifica Clientes Mútuos
+            if c_mutuo in df_parceiro.columns:
+                df_parceiro['Is_Cliente'] = df_parceiro[c_mutuo].apply(is_true)
+                mutual_clients = df_parceiro[df_parceiro['Is_Cliente']]
+                qtd_mutuos = len(mutual_clients)
             else:
-                st.sidebar.markdown("---")
-                st.sidebar.header("Configuração da Base LIB")
-                cols_p = df_parceiro.columns.tolist()
-                
-                # --- AUTO-SELEÇÃO DE COLUNAS ---
-                idx_cli_p = get_index(cols_p, "Cliente")
-                idx_prt_p = get_index(cols_p, "Porte")
-                idx_uf_p = get_index(cols_p, ["Estado", "UF", "U.F.", "State"])
-                idx_cid_p = get_index(cols_p, ["Cidade", "City", "Município"])
-                idx_tip_p = get_index(cols_p, ["Tipologia", "Tipo", "Type"])
-                # Ajuste na busca para Obras Contratadas
-                idx_obr_p = get_index(cols_p, ["Obras Contratadas", "Obras Con", "Obras", "Qtd Obras"])
-                
-                c_cliente_p = st.sidebar.selectbox("Coluna Cliente:", cols_p, index=idx_cli_p, key="cli_p")
-                c_porte_p = st.sidebar.selectbox("Coluna Porte:", cols_p, index=idx_prt_p, key="porte_p")
-                
-                # Novas Colunas para a Tabela
-                st.sidebar.markdown("##### Dados Adicionais")
-                c_uf_p = st.sidebar.selectbox("Coluna Estado (UF):", cols_p, index=idx_uf_p, key="uf_p")
-                c_cidade_p = st.sidebar.selectbox("Coluna Cidade:", cols_p, index=idx_cid_p, key="cid_p")
-                c_tipologia_p = st.sidebar.selectbox("Coluna Tipologia:", cols_p, index=idx_tip_p, key="tip_p")
-                c_obras_p = st.sidebar.selectbox("Coluna Obras Contratadas:", cols_p, index=idx_obr_p, key="obr_p")
+                df_parceiro['Is_Cliente'] = False
+                qtd_mutuos = 0
+            
+            # Identifica Oportunidades Quentes (Pelo Porte)
+            df_parceiro['Is_Quente'] = df_parceiro[c_porte_p].isin(portes_quentes)
+            oportunidades_quentes = df_parceiro[df_parceiro['Is_Quente']]
+            qtd_quentes = len(oportunidades_quentes)
+            
+            # --- VISUAL ---
+            st.divider()
+            kp1, kp2, kp3 = st.columns(3)
+            kp1.metric("Total Base Mapeada", total_base)
+            kp2.metric("Oportunidades Quentes", qtd_quentes)
+            kp3.metric("Clientes LIB", qtd_mutuos)
+            
+            st.markdown("---")
+            c1, c2 = st.columns(2)
+            with c1:
+                st.subheader("Potencial da Base")
+                dados_graf = pd.DataFrame({
+                    "Categoria": ["Base Prevision", "Oportunidades Quentes", "Clientes Atuais"],
+                    "Quantidade": [total_base, qtd_quentes, qtd_mutuos]
+                })
+                fig_p = px.bar(dados_graf, x="Categoria", y="Quantidade", color="Categoria", text="Quantidade", color_discrete_sequence=["#1f77b4", "#2ca02c", "#ff7f0e"])
+                st.plotly_chart(fig_p, use_container_width=True)
+            with c2:
+                st.subheader("Distribuição por Porte")
+                contagem_porte = df_parceiro[c_porte_p].value_counts().reset_index()
+                contagem_porte.columns = ['Porte', 'Qtd']
+                fig_pie_p = px.pie(contagem_porte, names='Porte', values='Qtd', hole=0.4)
+                st.plotly_chart(fig_pie_p, use_container_width=True)
 
-                cols_mutuo_opts = ["(Não existe)"] + cols_p
-                def get_mutuo_index():
-                    target = ["Cliente LIB", "É Cliente Prevision", "Cliente Prevision"]
-                    for t in target:
-                        if t in cols_p: return cols_p.index(t) + 1
-                    return 0
-                c_mutuo = st.sidebar.selectbox("Coluna 'É Cliente Prevision?':", cols_mutuo_opts, index=get_mutuo_index(), key="mutuo_p")
+            # --- MATRIZ ---
+            st.markdown("---")
+            st.subheader("Matriz: Porte x Categoria")
+            
+            # Prepara dados da Matriz (Sem Opp Quentes conforme pedido)
+            grupos_lib = [("Total Mapeado", df_parceiro), ("Clientes LIB", mutual_clients)]
+            lista_matriz_lib = []
+            for nome, dff in grupos_lib:
+                for _, row in dff.iterrows():
+                        lista_matriz_lib.append({'Porte': row[c_porte_p], 'Status': nome, 'Cliente': row[c_cliente_p]})
+            
+            df_matriz_source_lib = pd.DataFrame(lista_matriz_lib)
+            selection_matriz = None
+            
+            if not df_matriz_source_lib.empty:
+                matriz_final_lib = pd.crosstab(df_matriz_source_lib['Porte'], df_matriz_source_lib['Status'])
+                # Ordena para Total ficar primeiro
+                cols = sorted(matriz_final_lib.columns.tolist())
+                if "Total Mapeado" in cols:
+                    cols.remove("Total Mapeado")
+                    cols.insert(0, "Total Mapeado")
+                matriz_final_lib = matriz_final_lib[cols]
                 
-                st.sidebar.markdown("---")
-                st.sidebar.subheader("Definição de 'Oportunidade Quente'")
-                todos_portes = df_parceiro[c_porte_p].dropna().unique().tolist()
-                sugestao_quentes = ['G1', 'G2', 'G3', 'M2', 'M3']
-                padrao_selecionado = [p for p in sugestao_quentes if p in todos_portes]
-                portes_quentes = st.sidebar.multiselect("Portes Quentes:", options=todos_portes, default=padrao_selecionado)
-                
-                # --- PROCESSAMENTO DOS DADOS ---
-                total_base = len(df_parceiro)
-                
-                if c_mutuo != "(Não existe)":
-                    df_parceiro['Is_Cliente'] = df_parceiro[c_mutuo].apply(is_true)
-                    mutual_clients = df_parceiro[df_parceiro['Is_Cliente']]
-                    qtd_mutuos = len(mutual_clients)
-                else:
-                    df_parceiro['Is_Cliente'] = False
-                    qtd_mutuos = 0
-                
-                df_parceiro['Is_Quente'] = df_parceiro[c_porte_p].isin(portes_quentes)
-                oportunidades_quentes = df_parceiro[df_parceiro['Is_Quente']]
-                qtd_quentes = len(oportunidades_quentes)
-                
-                # --- MATRIZ AJUSTADA (REMOVIDO 'OPORTUNIDADES QUENTES') ---
-                grupos_lib = [
-                    ("Total Mapeado", df_parceiro), 
-                    ("Clientes LIB", mutual_clients)
-                ]
-                
-                lista_matriz_lib = []
-                for nome, dff in grupos_lib:
-                    for _, row in dff.iterrows():
-                         lista_matriz_lib.append({'Porte': row[c_porte_p], 'Status': nome, 'Cliente': row[c_cliente_p]})
-                
-                df_matriz_source_lib = pd.DataFrame(lista_matriz_lib)
+                fig_heat_lib = px.imshow(matriz_final_lib, text_auto=True, aspect="auto", color_continuous_scale='Viridis')
+                selection_matriz = st.plotly_chart(fig_heat_lib, use_container_width=True, on_select="rerun", selection_mode="points")
 
-                # --- VISUAL ---
-                st.divider()
-                kp1, kp2, kp3 = st.columns(3)
-                kp1.metric("Total Base Mapeada", total_base)
-                kp2.metric("Oportunidades Quentes", qtd_quentes)
-                kp3.metric("Clientes LIB", qtd_mutuos)
-                
-                st.markdown("---")
-                c1, c2 = st.columns(2)
-                with c1:
-                    st.subheader("Potencial da Base")
-                    dados_graf = pd.DataFrame({
-                        "Categoria": ["Base Prevision", "Oportunidades Quentes", "Clientes Atuais"],
-                        "Quantidade": [total_base, qtd_quentes, qtd_mutuos]
+            # --- MAPA ---
+            st.markdown("---")
+            st.subheader("📍 Geografia das Oportunidades")
+            selection_mapa = None
+            
+            if c_uf_p in df_parceiro.columns:
+                df_mapa = df_parceiro.groupby(c_uf_p).apply(
+                    lambda x: pd.Series({
+                        'Total_Linhas': len(x),
+                        'Qtd_Clientes': x['Is_Cliente'].sum(),
+                        'Qtd_Quentes': x['Is_Quente'].sum()
                     })
-                    fig_p = px.bar(dados_graf, x="Categoria", y="Quantidade", color="Categoria", text="Quantidade", color_discrete_sequence=["#1f77b4", "#2ca02c", "#ff7f0e"])
-                    st.plotly_chart(fig_p, use_container_width=True)
-                with c2:
-                    st.subheader("Distribuição por Porte")
-                    contagem_porte = df_parceiro[c_porte_p].value_counts().reset_index()
-                    contagem_porte.columns = ['Porte', 'Qtd']
-                    fig_pie_p = px.pie(contagem_porte, names='Porte', values='Qtd', hole=0.4)
-                    st.plotly_chart(fig_pie_p, use_container_width=True)
-
-                st.markdown("---")
+                ).reset_index()
+                df_mapa.rename(columns={c_uf_p: 'UF'}, inplace=True)
+                df_mapa['Oportunidades Geral'] = df_mapa['Total_Linhas'] - df_mapa['Qtd_Quentes']
                 
-                # --- SEÇÃO MATRIZ ---
-                st.subheader("Matriz: Porte x Categoria")
-                selection_matriz = None
+                with st.spinner("Carregando mapa..."):
+                    brazil_states = carregar_mapa_brasil()
                 
-                if not df_matriz_source_lib.empty:
-                    matriz_final_lib = pd.crosstab(df_matriz_source_lib['Porte'], df_matriz_source_lib['Status'])
-                    cols_order = sorted(matriz_final_lib.columns.tolist())
-                    if "Total Mapeado" in cols_order:
-                        cols_order.remove("Total Mapeado")
-                        cols_order.insert(0, "Total Mapeado")
-                    matriz_final_lib = matriz_final_lib[cols_order]
-
-                    fig_heat_lib = px.imshow(matriz_final_lib, text_auto=True, aspect="auto", color_continuous_scale='Viridis')
-                    selection_matriz = st.plotly_chart(fig_heat_lib, use_container_width=True, on_select="rerun", selection_mode="points")
+                fig_map = px.choropleth(
+                    df_mapa, geojson=brazil_states, locations='UF', featureidkey='properties.sigla',
+                    color='Qtd_Quentes', color_continuous_scale="Reds", title="Calor de Oportunidades Quentes"
+                )
+                fig_map.update_traces(
+                    hovertemplate="<b>%{location}</b><br><br>Oportunidades Geral: %{customdata[0]}<br>Oportunidades Quentes: %{z}<br>Clientes LIB+Prevision: %{customdata[1]}<extra></extra>",
+                    customdata=df_mapa[['Oportunidades Geral', 'Qtd_Clientes']]
+                )
+                fig_map.update_geos(fitbounds="locations", visible=False)
+                fig_map.update_layout(margin={"r":0,"t":30,"l":0,"b":0}, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', geo=dict(bgcolor='rgba(0,0,0,0)'), clickmode='event+select')
                 
-                st.markdown("---")
-                
-                # --- MAPA INTERATIVO ---
-                st.subheader("📍 Geografia das Oportunidades (Clique no Estado)")
-                selection_mapa = None
-                
-                if c_uf_p:
-                    df_mapa = df_parceiro.groupby(c_uf_p).apply(
-                        lambda x: pd.Series({
-                            'Total_Linhas': len(x),
-                            'Qtd_Clientes': x['Is_Cliente'].sum(),
-                            'Qtd_Quentes': x['Is_Quente'].sum()
-                        })
-                    ).reset_index()
-                    
-                    df_mapa.rename(columns={c_uf_p: 'UF'}, inplace=True)
-                    df_mapa['Oportunidades Geral'] = df_mapa['Total_Linhas'] - df_mapa['Qtd_Quentes']
-                    
-                    with st.spinner("Carregando mapa..."):
-                        brazil_states = carregar_mapa_brasil()
-                    
-                    fig_map = px.choropleth(
-                        df_mapa,
-                        geojson=brazil_states,
-                        locations='UF',
-                        featureidkey='properties.sigla',
-                        color='Qtd_Quentes',
-                        color_continuous_scale="Reds",
-                        title="Calor de Oportunidades Quentes"
-                    )
-                    
-                    fig_map.update_traces(
-                        hovertemplate="<b>%{location}</b><br><br>" +
-                        "Oportunidades Geral: %{customdata[0]}<br>" +
-                        "Oportunidades Quentes: %{z}<br>" +
-                        "Clientes LIB+Prevision: %{customdata[1]}<extra></extra>",
-                        customdata=df_mapa[['Oportunidades Geral', 'Qtd_Clientes']]
-                    )
-                    
-                    fig_map.update_geos(fitbounds="locations", visible=False)
-                    fig_map.update_layout(
-                        margin={"r":0,"t":30,"l":0,"b":0},
-                        paper_bgcolor='rgba(0,0,0,0)',
-                        plot_bgcolor='rgba(0,0,0,0)',
-                        geo=dict(bgcolor='rgba(0,0,0,0)'),
-                        clickmode='event+select'
-                    )
-                    
-                    selection_mapa = st.plotly_chart(fig_map, use_container_width=True, on_select="rerun", selection_mode="points")
-                else:
-                    st.warning("Selecione a coluna de Estado (UF) para ver o mapa.")
+                selection_mapa = st.plotly_chart(fig_map, use_container_width=True, on_select="rerun", selection_mode="points")
+            
+            # --- TABELA DE DETALHES ---
+            df_filtrado_final = df_parceiro.copy()
+            msg_filtro = "Mostrando base completa"
 
-                # --- LÓGICA DE FILTRO ---
-                df_filtrado_final = df_parceiro.copy()
-                msg_filtro = "Mostrando base completa"
+            # Filtro da Matriz
+            if selection_matriz and "selection" in selection_matriz and selection_matriz["selection"]["points"]:
+                pts = selection_matriz["selection"]["points"][0]
+                status_c = pts['x']
+                porte_c = pts['y']
+                clientes_alvo = df_matriz_source_lib[(df_matriz_source_lib['Status']==status_c) & (df_matriz_source_lib['Porte']==porte_c)]['Cliente'].unique()
+                df_filtrado_final = df_filtrado_final[df_filtrado_final[c_cliente_p].isin(clientes_alvo)]
+                msg_filtro = f"Matriz: {status_c} + {porte_c}"
+            
+            # Filtro do Mapa (Prioritário)
+            elif selection_mapa and "selection" in selection_mapa and selection_mapa["selection"]["points"]:
+                pts = selection_mapa["selection"]["points"][0]
+                uf_clicada = pts.get('location', pts.get('x'))
+                if uf_clicada:
+                    df_filtrado_final = df_filtrado_final[df_filtrado_final[c_uf_p] == uf_clicada]
+                    msg_filtro = f"Mapa: Estado {uf_clicada}"
 
-                # 1. Matriz
-                if selection_matriz and "selection" in selection_matriz and selection_matriz["selection"]["points"]:
-                    pts = selection_matriz["selection"]["points"][0]
-                    status_c = pts['x']
-                    porte_c = pts['y']
-                    
-                    clientes_alvo = df_matriz_source_lib[
-                        (df_matriz_source_lib['Status']==status_c) & 
-                        (df_matriz_source_lib['Porte']==porte_c)
-                    ]['Cliente'].unique()
-                    
-                    df_filtrado_final = df_filtrado_final[df_filtrado_final[c_cliente_p].isin(clientes_alvo)]
-                    msg_filtro = f"Matriz: {status_c} + {porte_c}"
-
-                # 2. Mapa (Prioridade)
-                elif selection_mapa and "selection" in selection_mapa and selection_mapa["selection"]["points"]:
-                    pts = selection_mapa["selection"]["points"][0]
-                    uf_clicada = pts.get('location', pts.get('x'))
-                    
-                    if uf_clicada:
-                        df_filtrado_final = df_filtrado_final[df_filtrado_final[c_uf_p] == uf_clicada]
-                        msg_filtro = f"Mapa: Estado {uf_clicada}"
-
-                # --- TABELA FINAL ---
-                with st.expander(f"🔎 Detalhes da Base ({msg_filtro})", expanded=True):
-                    # Incluindo "Obras Contratadas" (c_obras_p) na visualização
-                    cols_to_show = [c_cliente_p, c_porte_p, c_uf_p, c_cidade_p, c_tipologia_p, c_obras_p]
-                    cols_to_show = [c for c in cols_to_show if c in df_filtrado_final.columns]
-                    
-                    st.dataframe(df_filtrado_final[cols_to_show], hide_index=True, use_container_width=True)
+            with st.expander(f"🔎 Detalhes da Base ({msg_filtro})", expanded=True):
+                cols_view = [c for c in [c_cliente_p, c_porte_p, c_uf_p, c_cidade_p, c_tipologia_p, c_obras_p] if c in df_filtrado_final.columns]
+                st.dataframe(df_filtrado_final[cols_view], hide_index=True, use_container_width=True)
 
         except Exception as e:
-            st.error(f"Erro no Painel LIB: {e}")
+            st.error(f"Erro ao ler aba 'Planilha1'. Detalhe: {e}")
 
 else:
-    st.info("Selecione um arquivo.")
+    st.info("Aguardando arquivo.")
