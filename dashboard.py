@@ -136,7 +136,7 @@ if modo_visualizacao == "Análise LIB":
             c_bar, c_pie = st.columns([1.5, 1])
             
             with c_bar:
-                st.subheader("Funil Geral")
+                st.subheader("Visão Geral Base")
                 if not df_resumo.empty:
                     fig_bar = px.bar(df_resumo, x='Quantidade', y='Categoria', orientation='h', text='Quantidade', color='Categoria')
                     fig_bar.update_layout(showlegend=False)
@@ -223,7 +223,7 @@ elif modo_visualizacao == "Análise Prevision":
             padrao_quentes = ['G1', 'G2', 'G3', 'M2', 'M3']
             padrao_selecionado = [p for p in padrao_quentes if p in todos_portes]
             
-            portes_quentes = st.sidebar.multiselect("Definir Portes Quentes:", options=todos_portes, default=padrao_selecionado)
+            portes_quentes = st.sidebar.multiselect("Definir Portes Ideais:", options=todos_portes, default=padrao_selecionado)
             
             # --- CÁLCULOS ---
             total_base = len(df_parceiro)
@@ -246,7 +246,7 @@ elif modo_visualizacao == "Análise Prevision":
             st.divider()
             kp1, kp2, kp3 = st.columns(3)
             kp1.metric("Total Mapeado", total_base)
-            kp2.metric("Oportunidades Quentes", qtd_quentes)
+            kp2.metric("Leads Ideais", qtd_quentes)
             kp3.metric("Clientes LIB", qtd_mutuos)
             
             st.markdown("---")
@@ -254,7 +254,7 @@ elif modo_visualizacao == "Análise Prevision":
             with c1:
                 st.subheader("Potencial da Base")
                 dados_graf = pd.DataFrame({
-                    "Categoria": ["Clientes Prevision", "Oportunidades Quentes", "Clientes Atuais"],
+                    "Categoria": ["Clientes Prevision", "Leads Ideais", "Clientes Atuais"],
                     "Quantidade": [total_base, qtd_quentes, qtd_mutuos]
                 })
                 fig_p = px.bar(dados_graf, x="Categoria", y="Quantidade", color="Categoria", text="Quantidade", color_discrete_sequence=["#1f77b4", "#2ca02c", "#ff7f0e"])
@@ -313,7 +313,7 @@ elif modo_visualizacao == "Análise Prevision":
                 
                 fig_map = px.choropleth(
                     df_mapa, geojson=brazil_states, locations='UF', featureidkey='properties.sigla',
-                    color='Qtd_Quentes', color_continuous_scale="Reds", title="Calor de Oportunidades"
+                    color='Qtd_Quentes', color_continuous_scale="Reds", title="Calor por Oportunidades"
                 )
                 fig_map.update_traces(
                     hovertemplate="<b>%{location}</b><br><br>Oportunidades Geral: %{customdata[0]}<br>Oportunidades Quentes: %{z}<br>Clientes LIB+Prevision: %{customdata[1]}<extra></extra>",
