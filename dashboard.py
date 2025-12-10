@@ -125,19 +125,22 @@ if modo_visualizacao == "Análise LIB":
             # --- VISUALIZAÇÃO ---
             st.divider()
 
-            # --- NOVO: INFO BOX DE OPORTUNIDADES QUENTES ---
-            st.info("ℹ️ Oportunidades Quentes: ICP, Porte Médio+, Último contato com LIB em 24/25 e não é Cliente")
-
+            # REMOVI O st.info DAQUI
+            
             k1, k2, k3, k4, k5 = st.columns(5)
             k1.metric("Total Mapeado", val_total)
             k2.metric("ICPs", val_icp)
-            k3.metric("Oportunidades Quentes", val_hot)
-            k4.metric("Clientes Prevision", val_prev)
-            k5.metric("Clientes Ecossistema", val_ecos_merged)
             
-            # --- NOVO: INFO BOX DE ECOSSISTEMA ---
-            st.info("ℹ️ Clientes Ecossistema: Prevision + Ecossistema Starian")
-
+            # ADICIONEI O TOOLTIP (help) DENTRO DA MÉTRICA
+            k3.metric("Oportunidades Quentes", val_hot, 
+                      help="Critérios: ICP, Porte Médio+, Último contato com LIB em 24/25 e não é Cliente")
+            
+            k4.metric("Clientes Prevision", val_prev)
+            
+            # ADICIONEI O TOOLTIP (help) DENTRO DA MÉTRICA
+            k5.metric("Clientes Ecossistema", val_ecos_merged, 
+                      help="Critérios: Prevision + Ecossistema Starian")
+            
             st.markdown("---")
             c_bar, c_pie = st.columns([1.5, 1])
             
@@ -253,11 +256,10 @@ elif modo_visualizacao == "Análise Prevision":
             kp1, kp2, kp3 = st.columns(3)
             kp1.metric("Total Mapeado", total_base)
             kp2.metric("ICPs", qtd_quentes)
-            kp3.metric("Clientes LIB", qtd_mutuos)
             
-            # --- NOVO: INFO BOX DE CLIENTES LIB ---
-            st.info("ℹ️ Clientes LIB: Apenas Clientes Prevision+Lib")
-
+            # ADICIONEI O TOOLTIP (help) DENTRO DA MÉTRICA, REMOVI O st.info
+            kp3.metric("Clientes LIB", qtd_mutuos, help="Apenas Clientes Prevision+Lib")
+            
             st.markdown("---")
             c1, c2 = st.columns(2)
             with c1:
@@ -279,11 +281,10 @@ elif modo_visualizacao == "Análise Prevision":
             st.markdown("---")
             st.subheader("Matriz Porte x Status")
             
-            # --- ALTERAÇÃO: Adicionado 'Oportunidades Quentes' na Matriz ---
             grupos_lib = [
                 ("Total Mapeado", df_parceiro), 
                 ("Clientes LIB", mutual_clients),
-                ("Oportunidades Quentes", oportunidades_quentes) # Nova Categoria Adicionada
+                ("Oportunidades Quentes", oportunidades_quentes) 
             ]
             
             lista_matriz_lib = []
