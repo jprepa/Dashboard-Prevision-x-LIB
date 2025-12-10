@@ -62,17 +62,17 @@ if modo_visualizacao == "Análise LIB":
         try:
             df = pd.read_excel(arquivo_carregado, sheet_name="Clientes")
             
-            # --- NOMES DAS COLUNAS (Verifique se bate com o Excel) ---
+            # --- NOMES DAS COLUNAS (Ajustados conforme solicitado) ---
             c_cliente = "Cliente"
             c_porte = "Porte"
             c_cidade = "Cidade"
             c_mercado = "Mercado de atuação"
             c_obras = "Obras Contratadas"
             
-            # Colunas Novas Solicitadas (Imagem Esquerda)
+            # Colunas Novas (Imagem Esquerda) - CORRIGIDO AQUI
             c_plano = "Plano"
             c_erp = "ERP"
-            c_upsell = "Último Upsell"
+            c_upsell = "Último Upsell" 
             c_data_ganho = "Data de Ganho"
             
             # Flags
@@ -191,7 +191,7 @@ if modo_visualizacao == "Análise LIB":
                     # --- DEFINIÇÃO DAS COLUNAS A EXIBIR ---
                     cols_preferenciais = [
                         c_cliente, c_porte, c_cidade, c_mercado, 
-                        c_plano, c_erp, c_upsell, c_data_ganho, # Novas
+                        c_plano, c_erp, c_upsell, c_data_ganho, # Colunas ajustadas
                         c_obras
                     ]
                     # Filtra apenas as que existem no Excel para não dar erro
@@ -212,7 +212,7 @@ elif modo_visualizacao == "Análise Prevision":
         try:
             df_parceiro = pd.read_excel(arquivo_carregado, sheet_name="Planilha1")
             
-            # --- NOMES DAS COLUNAS (Verifique se bate com o Excel) ---
+            # --- NOMES DAS COLUNAS (Ajustados conforme solicitado) ---
             c_cliente_p = "Cliente"
             c_porte_p = "Porte"
             c_uf_p = "Estado"
@@ -221,10 +221,10 @@ elif modo_visualizacao == "Análise Prevision":
             c_obras_p = "Obras Contratadas"
             c_mutuo = "Cliente LIB"
             
-            # Colunas Novas Solicitadas (Imagem Direita/Base Geral)
-            c_servico = "Serviço Vendido"
-            c_ano_proj = "Ano do Último Projeto"
-            c_contato = "Atual contato"
+            # Colunas Novas (Imagem Direita) - CORRIGIDO AQUI
+            c_servico = "Serviço vendido"
+            c_ano_proj = "Ano do último projeto"
+            c_contato = "Atual Contato"
             c_solucoes = "Solucoes Starian"
 
             # Parâmetros
@@ -334,7 +334,7 @@ elif modo_visualizacao == "Análise Prevision":
                 # --- DEFINIÇÃO DAS COLUNAS A EXIBIR (PARCEIRO) ---
                 cols_preferenciais_p = [
                     c_cliente_p, c_porte_p, c_uf_p, c_cidade_p, c_tipologia_p, 
-                    c_servico, c_ano_proj, c_contato, c_solucoes, # Novas
+                    c_servico, c_ano_proj, c_contato, c_solucoes, # Colunas ajustadas
                     c_obras_p
                 ]
                 # Filtra apenas as que existem no Excel
