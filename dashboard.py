@@ -159,10 +159,10 @@ if modo_visualizacao == "Análise Prevision":
                 
                 k1, k2, k3, k4, k5 = st.columns(5)
                 k1.metric("Total Mapeado", val_total)
-                k2.metric("Total ICPs", val_icp)
+                k2.metric("Oportunidades (Geral)", val_icp)
                 k3.metric("Oportunidades Quentes", val_hot)
                 k4.metric("Clientes Prevision", val_prev)
-                k5.metric("Clientes Ecossistema", val_ecos_merged, help="Soma: Prevision + Parceiros Ecossistema")
+                k5.metric("Clientes Ecossistema", val_ecos_merged, help="Clientes Prevision + Clientes Ecossistema")
                 
                 st.markdown("---")
                 
