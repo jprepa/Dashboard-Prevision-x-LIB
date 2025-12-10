@@ -245,7 +245,7 @@ elif modo_visualizacao == "Análise LIB":
             # --- VISUAL ---
             st.divider()
             kp1, kp2, kp3 = st.columns(3)
-            kp1.metric("Total Base Mapeada", total_base)
+            kp1.metric("Total Mapeado", total_base)
             kp2.metric("Oportunidades Quentes", qtd_quentes)
             kp3.metric("Clientes LIB", qtd_mutuos)
             
@@ -254,7 +254,7 @@ elif modo_visualizacao == "Análise LIB":
             with c1:
                 st.subheader("Potencial da Base")
                 dados_graf = pd.DataFrame({
-                    "Categoria": ["Base Prevision", "Oportunidades Quentes", "Clientes Atuais"],
+                    "Categoria": ["Clientes Prevision", "Oportunidades Quentes", "Clientes Atuais"],
                     "Quantidade": [total_base, qtd_quentes, qtd_mutuos]
                 })
                 fig_p = px.bar(dados_graf, x="Categoria", y="Quantidade", color="Categoria", text="Quantidade", color_discrete_sequence=["#1f77b4", "#2ca02c", "#ff7f0e"])
