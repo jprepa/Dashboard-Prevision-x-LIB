@@ -17,7 +17,6 @@ div[data-testid="metric-container"] {
     border-radius: 8px;
     box-shadow: 2px 2px 5px rgba(0,0,0,0.3);
 }
-/* Ajuste para remover bordas brancas de iframes se houver */
 iframe { border: none !important; }
 </style>
 """, unsafe_allow_html=True)
@@ -26,7 +25,6 @@ iframe { border: none !important; }
 
 @st.cache_data
 def carregar_mapa_brasil():
-    """Baixa o GeoJSON dos estados do Brasil para desenhar o mapa."""
     url = "https://raw.githubusercontent.com/codeforamerica/click_that_hood/master/public/data/brazil-states.geojson"
     with urlopen(url) as response:
         brazil_states = json.load(response)
@@ -213,7 +211,7 @@ if modo_visualizacao == "Análise Prevision":
             st.error(f"Erro no Painel Prevision: {e}")
 
 # ==============================================================================
-# MODO 2: ANÁLISE LIB (PARCEIRO) - COM MAPA AJUSTADO
+# MODO 2: ANÁLISE LIB (PARCEIRO) - COM MAPA + FILTRO
 # ==============================================================================
 elif modo_visualizacao == "Análise LIB":
     st.title("📊 Painel Estratégico LIB")
@@ -295,16 +293,14 @@ elif modo_visualizacao == "Análise LIB":
                     fig_pie_p = px.pie(contagem_porte, names='Porte', values='Qtd', hole=0.4)
                     st.plotly_chart(fig_pie_p, use_container_width=True)
 
-                with st.expander("🔎 Ver Lista de Oportunidades Quentes"):
-                    st.dataframe(oportunidades_quentes[[c_cliente_p, c_porte_p]], hide_index=True, use_container_width=True)
-
                 st.markdown("---")
                 
-                # --- NOVO: MAPA DO BRASIL NO FINAL ---
-                st.subheader("📍 Geografia das Oportunidades")
+                # --- MAPA INTERATIVO ---
+                st.subheader("📍 Geografia das Oportunidades (Clique no Estado)")
+                
+                uf_selecionada = None
                 
                 if c_uf_p:
-                    # Cálculo avançado para o mapa
                     df_mapa = df_parceiro.groupby(c_uf_p).apply(
                         lambda x: pd.Series({
                             'Total_Linhas': len(x),
@@ -314,26 +310,21 @@ elif modo_visualizacao == "Análise LIB":
                     ).reset_index()
                     
                     df_mapa.rename(columns={c_uf_p: 'UF'}, inplace=True)
-                    
-                    # Cálculo: Opp Geral = Total Linhas - Quentes
                     df_mapa['Oportunidades Geral'] = df_mapa['Total_Linhas'] - df_mapa['Qtd_Quentes']
                     
-                    # Carrega GeoJSON
                     with st.spinner("Carregando mapa..."):
                         brazil_states = carregar_mapa_brasil()
                     
-                    # Plota o Mapa com fundo transparente
                     fig_map = px.choropleth(
                         df_mapa,
                         geojson=brazil_states,
                         locations='UF',
                         featureidkey='properties.sigla',
-                        color='Qtd_Quentes', # Cor baseada no calor
+                        color='Qtd_Quentes',
                         color_continuous_scale="Reds",
-                        title="Calor de Oportunidades Quentes por Estado"
+                        title="Calor de Oportunidades Quentes"
                     )
                     
-                    # Customização do Tooltip (Hover)
                     fig_map.update_traces(
                         hovertemplate="<b>%{location}</b><br><br>" +
                         "Oportunidades Geral: %{customdata[0]}<br>" +
@@ -342,18 +333,45 @@ elif modo_visualizacao == "Análise LIB":
                         customdata=df_mapa[['Oportunidades Geral', 'Qtd_Clientes']]
                     )
                     
-                    # Ajuste fino visual (Transparência total)
                     fig_map.update_geos(fitbounds="locations", visible=False)
                     fig_map.update_layout(
                         margin={"r":0,"t":30,"l":0,"b":0},
-                        paper_bgcolor='rgba(0,0,0,0)', # Fundo transparente
+                        paper_bgcolor='rgba(0,0,0,0)',
                         plot_bgcolor='rgba(0,0,0,0)',
-                        geo=dict(bgcolor='rgba(0,0,0,0)')
+                        geo=dict(bgcolor='rgba(0,0,0,0)'),
+                        clickmode='event+select'
                     )
                     
-                    st.plotly_chart(fig_map, use_container_width=True)
+                    # --- INTERATIVIDADE DO MAPA ---
+                    # selection_mode="points" pega o ponto (estado) clicado
+                    map_selection = st.plotly_chart(fig_map, use_container_width=True, on_select="rerun", selection_mode="points")
+                    
+                    # Tenta capturar qual estado foi clicado
+                    if map_selection and "selection" in map_selection and "points" in map_selection["selection"]:
+                         if map_selection["selection"]["points"]:
+                             # No Choropleth, o 'location' (ou 'x'/'y' dependendo da versão) guarda o ID do estado
+                             # Geralmente em px.choropleth com locations='UF', o ponto tem o campo 'location'
+                             ponto = map_selection["selection"]["points"][0]
+                             if 'location' in ponto:
+                                 uf_selecionada = ponto['location']
+                             elif 'x' in ponto: # Fallback
+                                 uf_selecionada = ponto['x']
+
                 else:
                     st.warning("Selecione a coluna de Estado (UF) para ver o mapa.")
+
+                # --- LISTA FILTRADA ---
+                with st.expander("🔎 Ver Lista de Oportunidades Quentes", expanded=True):
+                    
+                    if uf_selecionada:
+                        st.info(f"📍 **Filtro Ativo: Estado {uf_selecionada}** (Clique no mapa novamente para limpar)")
+                        # Filtra apenas as oportunidades QUENTES daquele estado
+                        df_filtrado = oportunidades_quentes[oportunidades_quentes[c_uf_p] == uf_selecionada]
+                    else:
+                        st.write("Mostrando todas as oportunidades quentes (Clique no mapa para filtrar por Estado)")
+                        df_filtrado = oportunidades_quentes
+                    
+                    st.dataframe(df_filtrado[[c_cliente_p, c_porte_p, c_uf_p]], hide_index=True, use_container_width=True)
 
         except Exception as e:
             st.error(f"Erro no Painel LIB: {e}")
