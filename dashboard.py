@@ -53,7 +53,7 @@ uploaded_file = st.sidebar.file_uploader("Suba o arquivo Excel", type=["xlsx", "
 # MODO 1: ANÁLISE PREVISION (INTERNA)
 # ==============================================================================
 if modo_visualizacao == "Análise Prevision":
-    st.title("📊 Painel Estratégico (Prevision)")
+    st.title("📊 Painel Estratégico Prevision")
     
     if uploaded_file is not None:
         try:
@@ -129,9 +129,9 @@ if modo_visualizacao == "Análise Prevision":
                     ("Total Mapeado", "ALL_ROWS"),
                     ("Total ICPs", c_icp),
                     ("Oportunidades Quentes", c_icp_quente),
-                    ("Oportunidades (Geral)", c_oportunidade),
+                    ("ICP", c_oportunidade),
                     ("Clientes Prevision", c_prev),
-                    ("Clientes Ecossistema (Só Parceiros)", c_ecos)
+                    ("Clientes Ecossistema", c_ecos)
                 ]
                 
                 resumo_barras = {'Categoria': [], 'Quantidade': [], 'Lista_Clientes': []}
@@ -162,7 +162,7 @@ if modo_visualizacao == "Análise Prevision":
                 k2.metric("Total ICPs", val_icp)
                 k3.metric("Oportunidades Quentes", val_hot)
                 k4.metric("Clientes Prevision", val_prev)
-                k5.metric("Carteira Ecossistema", val_ecos_merged, help="Soma: Prevision + Parceiros Ecossistema")
+                k5.metric("Clientes Ecossistema", val_ecos_merged, help="Soma: Prevision + Parceiros Ecossistema")
                 
                 st.markdown("---")
                 
@@ -175,7 +175,7 @@ if modo_visualizacao == "Análise Prevision":
                     st.plotly_chart(fig_bar, use_container_width=True)
                     
                 with c_pie:
-                    st.subheader("Distribuição: ICPs")
+                    st.subheader("Distribuição ICPs")
                     # Evita erro na pizza se tudo for zero
                     dados_pizza = [
                         {"Label": "Oportunidades Quentes", "Valor": val_hot},
@@ -244,7 +244,7 @@ if modo_visualizacao == "Análise Prevision":
 # MODO 2: ANÁLISE LIB (PARCEIRO)
 # ==============================================================================
 elif modo_visualizacao == "Análise LIB":
-    st.title("📊 Painel Estratégico (LIB)")
+    st.title("📊 Painel Estratégico LIB")
     
     if uploaded_file is not None:
         try:
@@ -305,9 +305,9 @@ elif modo_visualizacao == "Análise LIB":
                 st.divider()
                 
                 kp1, kp2, kp3 = st.columns(3)
-                kp1.metric("Total Base Mapeada", total_base)
+                kp1.metric("Total Mapeado", total_base)
                 kp2.metric("Oportunidades Quentes", qtd_quentes, f"Portes: {', '.join(map(str, portes_quentes))}")
-                kp3.metric("Já são Clientes LIB", qtd_mutuos)
+                kp3.metric("Clientes LIB", qtd_mutuos)
                 
                 st.markdown("---")
                 c1, c2 = st.columns(2)
@@ -315,7 +315,7 @@ elif modo_visualizacao == "Análise LIB":
                 with c1:
                     st.subheader("Potencial da Base")
                     dados_graf = pd.DataFrame({
-                        "Categoria": ["Base Total", "Oportunidades Quentes", "Clientes Atuais"],
+                        "Categoria": ["Base Prevision", "Oportunidades Quentes", "Clientes Atuais"],
                         "Quantidade": [total_base, qtd_quentes, qtd_mutuos]
                     })
                     fig_p = px.bar(dados_graf, x="Categoria", y="Quantidade", color="Categoria", text="Quantidade",
@@ -339,3 +339,4 @@ elif modo_visualizacao == "Análise LIB":
 
 else:
     st.info("Selecione um arquivo.")
+
