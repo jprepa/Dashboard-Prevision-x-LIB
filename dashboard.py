@@ -60,7 +60,7 @@ else:
 # MODO 1: ANÁLISE PREVISION (INTERNA)
 # ==============================================================================
 if modo_visualizacao == "Análise LIB":
-    st.title("📊 Análise Clientes LIB")
+    st.title("📊 Análise Base Clientes LIB")
     
     if arquivo_carregado:
         try:
@@ -201,7 +201,7 @@ if modo_visualizacao == "Análise LIB":
 # MODO 2: ANÁLISE LIB (PARCEIRO)
 # ==============================================================================
 elif modo_visualizacao == "Análise Prevision":
-    st.title("📊 Análise Clientes Prevision")
+    st.title("📊 Análise Base Clientes Prevision")
     
     if arquivo_carregado:
         try:
@@ -268,7 +268,7 @@ elif modo_visualizacao == "Análise Prevision":
 
             # --- MATRIZ ---
             st.markdown("---")
-            st.subheader("Matriz: Porte x Categoria")
+            st.subheader("Matriz Porte x Categoria")
             
             # Prepara dados da Matriz (Sem Opp Quentes conforme pedido)
             grupos_lib = [("Total Mapeado", df_parceiro), ("Clientes LIB", mutual_clients)]
@@ -313,7 +313,7 @@ elif modo_visualizacao == "Análise Prevision":
                 
                 fig_map = px.choropleth(
                     df_mapa, geojson=brazil_states, locations='UF', featureidkey='properties.sigla',
-                    color='Qtd_Quentes', color_continuous_scale="Reds", title="Calor de Oportunidades Quentes"
+                    color='Qtd_Quentes', color_continuous_scale="Reds", title="Calor de Oportunidades"
                 )
                 fig_map.update_traces(
                     hovertemplate="<b>%{location}</b><br><br>Oportunidades Geral: %{customdata[0]}<br>Oportunidades Quentes: %{z}<br>Clientes LIB+Prevision: %{customdata[1]}<extra></extra>",
