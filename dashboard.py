@@ -162,7 +162,7 @@ if modo_visualizacao == "Análise LIB":
             msg_filtro = ""
 
             with c_matriz:
-                st.subheader("Matriz")
+                st.subheader("Matriz Porte x Status")
                 selection = None
                 if not df_matriz_source.empty:
                     matriz_final = pd.crosstab(df_matriz_source['Porte'], df_matriz_source['Status'])
@@ -268,7 +268,7 @@ elif modo_visualizacao == "Análise Prevision":
 
             # --- MATRIZ ---
             st.markdown("---")
-            st.subheader("Matriz Porte x Categoria")
+            st.subheader("Matriz Porte x Status")
             
             # Prepara dados da Matriz (Sem Opp Quentes conforme pedido)
             grupos_lib = [("Total Mapeado", df_parceiro), ("Clientes LIB", mutual_clients)]
