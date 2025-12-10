@@ -97,7 +97,7 @@ if modo_visualizacao == "Análise LIB":
                 ("Total ICPs", c_icp),
                 ("Oportunidades Quentes", c_icp_quente),
                 ("Oportunidades (Geral)", c_oportunidade),
-                ("Clientes Ecossistema", c_ecos),
+                ("Clientes Ecossistema Starian", c_ecos),
                 ("Clientes Prevision", c_prev)
             ]
             
