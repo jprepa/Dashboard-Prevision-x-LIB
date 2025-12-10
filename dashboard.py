@@ -75,11 +75,22 @@ if modo_visualizacao == "Análise Prevision":
                 st.sidebar.header("Mapear Colunas")
                 cols = df.columns.tolist()
                 
+                # Identificação Básica
                 idx_cli = get_index(cols, ["Cliente", "Nome Fantasia", "Empresa"])
                 idx_prt = get_index(cols, ["Porte", "CNPJ", "Tamanho"])
                 
                 c_cliente = st.sidebar.selectbox("Nome do Cliente:", cols, index=idx_cli, key="cli_in")
                 c_porte = st.sidebar.selectbox("Porte:", cols, index=idx_prt, key="porte_in")
+                
+                # NOVAS COLUNAS PEDIDAS (PREVISION)
+                idx_cid = get_index(cols, ["Cidade", "City", "Município"])
+                idx_mkt = get_index(cols, ["Mercado", "Mercado de atuação", "Atuação"])
+                idx_obr = get_index(cols, ["Obras", "Obras Contratadas", "Qtd Obras"])
+                
+                st.sidebar.markdown("##### Dados Adicionais (Tabela)")
+                c_cidade = st.sidebar.selectbox("Cidade:", cols, index=idx_cid, key="cid_in")
+                c_mercado = st.sidebar.selectbox("Mercado de Atuação:", cols, index=idx_mkt, key="mkt_in")
+                c_obras = st.sidebar.selectbox("Obras Contratadas:", cols, index=idx_obr, key="obr_in")
                 
                 st.sidebar.markdown("---")
                 st.sidebar.info("Colunas de Flags (Sim/Não)")
@@ -205,13 +216,15 @@ if modo_visualizacao == "Análise Prevision":
                     
                     if not df_filtrado_show.empty:
                         st.info(msg_filtro if filtro_ativo else "Listando Grupo Inteiro")
-                        st.dataframe(df_filtrado_show[[c_cliente, c_porte]], hide_index=True, use_container_width=True, height=300)
+                        # MOSTRANDO AS NOVAS COLUNAS
+                        cols_mostrar = [c_cliente, c_porte, c_cidade, c_mercado, c_obras]
+                        st.dataframe(df_filtrado_show[cols_mostrar], hide_index=True, use_container_width=True, height=300)
 
         except Exception as e:
             st.error(f"Erro no Painel Prevision: {e}")
 
 # ==============================================================================
-# MODO 2: ANÁLISE LIB (PARCEIRO) - MATRIZ + NOVAS COLUNAS + MAPA
+# MODO 2: ANÁLISE LIB (PARCEIRO) - MATRIZ AJUSTADA + TABELA CORRIGIDA
 # ==============================================================================
 elif modo_visualizacao == "Análise LIB":
     st.title("📊 Painel Estratégico LIB")
@@ -237,7 +250,8 @@ elif modo_visualizacao == "Análise LIB":
                 idx_uf_p = get_index(cols_p, ["Estado", "UF", "U.F.", "State"])
                 idx_cid_p = get_index(cols_p, ["Cidade", "City", "Município"])
                 idx_tip_p = get_index(cols_p, ["Tipologia", "Tipo", "Type"])
-                idx_obr_p = get_index(cols_p, ["Obras", "Qtd Obras", "Obras Con"])
+                # Ajuste na busca para Obras Contratadas
+                idx_obr_p = get_index(cols_p, ["Obras Contratadas", "Obras Con", "Obras", "Qtd Obras"])
                 
                 c_cliente_p = st.sidebar.selectbox("Coluna Cliente:", cols_p, index=idx_cli_p, key="cli_p")
                 c_porte_p = st.sidebar.selectbox("Coluna Porte:", cols_p, index=idx_prt_p, key="porte_p")
@@ -247,7 +261,7 @@ elif modo_visualizacao == "Análise LIB":
                 c_uf_p = st.sidebar.selectbox("Coluna Estado (UF):", cols_p, index=idx_uf_p, key="uf_p")
                 c_cidade_p = st.sidebar.selectbox("Coluna Cidade:", cols_p, index=idx_cid_p, key="cid_p")
                 c_tipologia_p = st.sidebar.selectbox("Coluna Tipologia:", cols_p, index=idx_tip_p, key="tip_p")
-                c_obras_p = st.sidebar.selectbox("Coluna Qtd Obras:", cols_p, index=idx_obr_p, key="obr_p")
+                c_obras_p = st.sidebar.selectbox("Coluna Obras Contratadas:", cols_p, index=idx_obr_p, key="obr_p")
 
                 cols_mutuo_opts = ["(Não existe)"] + cols_p
                 def get_mutuo_index():
@@ -279,12 +293,9 @@ elif modo_visualizacao == "Análise LIB":
                 oportunidades_quentes = df_parceiro[df_parceiro['Is_Quente']]
                 qtd_quentes = len(oportunidades_quentes)
                 
-                # --- PREPARAÇÃO DA MATRIZ (AQUI ESTÁ A NOVIDADE) ---
-                # Categorias solicitadas: "Clientes Prevision" (Total Mapeado) e "Clientes LIB" (Mútuos)
-                # + "Oportunidades Quentes" (Para valor agregado)
+                # --- MATRIZ AJUSTADA (REMOVIDO 'OPORTUNIDADES QUENTES') ---
                 grupos_lib = [
                     ("Total Mapeado", df_parceiro), 
-                    ("Oportunidades Quentes", oportunidades_quentes),
                     ("Clientes LIB", mutual_clients)
                 ]
                 
@@ -321,13 +332,12 @@ elif modo_visualizacao == "Análise LIB":
 
                 st.markdown("---")
                 
-                # --- SEÇÃO MATRIZ (NOVA) ---
+                # --- SEÇÃO MATRIZ ---
                 st.subheader("Matriz: Porte x Categoria")
                 selection_matriz = None
                 
                 if not df_matriz_source_lib.empty:
                     matriz_final_lib = pd.crosstab(df_matriz_source_lib['Porte'], df_matriz_source_lib['Status'])
-                    # Ordena colunas se possível
                     cols_order = sorted(matriz_final_lib.columns.tolist())
                     if "Total Mapeado" in cols_order:
                         cols_order.remove("Total Mapeado")
@@ -389,18 +399,16 @@ elif modo_visualizacao == "Análise LIB":
                 else:
                     st.warning("Selecione a coluna de Estado (UF) para ver o mapa.")
 
-                # --- LÓGICA DE FILTRO UNIFICADA (MATRIZ + MAPA) ---
-                # Define qual filtro aplicar na tabela de detalhes
-                df_filtrado_final = df_parceiro.copy() # Começa com tudo
+                # --- LÓGICA DE FILTRO ---
+                df_filtrado_final = df_parceiro.copy()
                 msg_filtro = "Mostrando base completa"
 
-                # 1. Verifica clique na Matriz
+                # 1. Matriz
                 if selection_matriz and "selection" in selection_matriz and selection_matriz["selection"]["points"]:
                     pts = selection_matriz["selection"]["points"][0]
                     status_c = pts['x']
                     porte_c = pts['y']
                     
-                    # Filtra clientes correspondentes
                     clientes_alvo = df_matriz_source_lib[
                         (df_matriz_source_lib['Status']==status_c) & 
                         (df_matriz_source_lib['Porte']==porte_c)
@@ -409,11 +417,7 @@ elif modo_visualizacao == "Análise LIB":
                     df_filtrado_final = df_filtrado_final[df_filtrado_final[c_cliente_p].isin(clientes_alvo)]
                     msg_filtro = f"Matriz: {status_c} + {porte_c}"
 
-                # 2. Verifica clique no Mapa (Prioridade para refinar ou substituir)
-                # Se quiser que um anule o outro, use if/elif. Se quiser somar, use if/if.
-                # Vou usar if/elif para não dar conflito (o último clique manda é difícil rastrear sem session_state,
-                # então vou dar prioridade ao Mapa se ele estiver ativo).
-                
+                # 2. Mapa (Prioridade)
                 elif selection_mapa and "selection" in selection_mapa and selection_mapa["selection"]["points"]:
                     pts = selection_mapa["selection"]["points"][0]
                     uf_clicada = pts.get('location', pts.get('x'))
@@ -422,11 +426,10 @@ elif modo_visualizacao == "Análise LIB":
                         df_filtrado_final = df_filtrado_final[df_filtrado_final[c_uf_p] == uf_clicada]
                         msg_filtro = f"Mapa: Estado {uf_clicada}"
 
-                # --- TABELA DE DETALHES FINAL ---
+                # --- TABELA FINAL ---
                 with st.expander(f"🔎 Detalhes da Base ({msg_filtro})", expanded=True):
-                    # Seleciona colunas para exibir
+                    # Incluindo "Obras Contratadas" (c_obras_p) na visualização
                     cols_to_show = [c_cliente_p, c_porte_p, c_uf_p, c_cidade_p, c_tipologia_p, c_obras_p]
-                    # Garante que as colunas existem no DF
                     cols_to_show = [c for c in cols_to_show if c in df_filtrado_final.columns]
                     
                     st.dataframe(df_filtrado_final[cols_to_show], hide_index=True, use_container_width=True)
