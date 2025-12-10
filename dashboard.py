@@ -42,7 +42,7 @@ def is_true(val):
 NOME_ARQUIVO = "Lib+Prevision.xlsx"
 
 st.sidebar.title("🎛️ Navegação")
-modo_visualizacao = st.sidebar.radio("Selecione a Visão:", ["Análise Prevision", "Análise LIB"])
+modo_visualizacao = st.sidebar.radio("Selecione a Visão:", ["Análise LIB", "Análise Prevision"])
 st.sidebar.markdown("---")
 
 # Lógica Híbrida: Tenta carregar automático, senão pede upload
