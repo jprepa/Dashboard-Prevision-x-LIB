@@ -46,7 +46,6 @@ modo_visualizacao = st.sidebar.radio("Selecione a Visão:", ["Análise LIB", "An
 st.sidebar.markdown("---")
 
 # Lógica Híbrida: Tenta carregar automático, senão pede upload
-df_bruto = None
 arquivo_carregado = None
 
 if os.path.exists(NOME_ARQUIVO):
@@ -59,27 +58,32 @@ else:
 # ==============================================================================
 # MODO 1: ANÁLISE PREVISION (INTERNA)
 # ==============================================================================
-if modo_visualizacao == "Análise LIB":
-    st.title("📊 Análise Base Clientes LIB")
+if modo_visualizacao == "Análise Prevision":
+    st.title("📊 Painel Estratégico Prevision")
     
     if arquivo_carregado:
         try:
             # Tenta ler a aba 'Clientes'
             df = pd.read_excel(arquivo_carregado, sheet_name="Clientes")
             
-            # --- DEFINIÇÃO DIRETA DAS COLUNAS (HARDCODED) ---
-            # Ajuste aqui se mudar o nome na planilha
+            # --- COLUNAS BÁSICAS ---
             c_cliente = "Cliente"
             c_porte = "Porte"
             c_cidade = "Cidade"
             c_mercado = "Mercado de atuação"
             c_obras = "Obras Contratadas"
             
+            # --- NOVAS COLUNAS PEDIDAS (PREVISION) ---
+            c_plano = "Plano"
+            c_erp = "ERP"
+            c_upsell = "Último Upsell"
+            c_data_ganho = "Data de Ganho" # Verifique se o nome na planilha é esse ou "Data de Ganho"
+            
             # Flags
             c_icp = "ICP"
             c_icp_quente = "Prospect Quente"
             c_oportunidade = "Oportunidade"
-            c_prev = "É Cliente Prevision?"  # Atenção ao '?'
+            c_prev = "É Cliente Prevision?" 
             c_ecos = "É cliente Ecossistema"
 
             # --- PROCESSAMENTO ---
@@ -91,11 +95,12 @@ if modo_visualizacao == "Análise LIB":
             val_ecos_only = len(df[df[c_ecos].apply(is_true)]) if c_ecos in df.columns else 0
             val_ecos_merged = val_prev + val_ecos_only
 
-            # Preparação para Gráficos
+            # Preparação para Gráficos e Matriz
+            # Nota: Adicionado "Oportunidades Quentes" aqui garante que apareça na Matriz
             config_grupos = [
                 ("Total Mapeado", "ALL_ROWS"),
                 ("Total ICPs", c_icp),
-                ("Oportunidades Quentes", c_icp_quente),
+                ("Oportunidades Quentes", c_icp_quente), 
                 ("Oportunidades (Geral)", c_oportunidade),
                 ("Clientes Ecossistema Starian", c_ecos),
                 ("Clientes Prevision", c_prev)
@@ -130,7 +135,8 @@ if modo_visualizacao == "Análise LIB":
             k2.metric("ICPs", val_icp)
             k3.metric("Oportunidades Quentes", val_hot)
             k4.metric("Clientes Prevision", val_prev)
-            k5.metric("Clientes Ecossistema", val_ecos_merged)
+            # Box de ajuda solicitada
+            k5.metric("Clientes Ecossistema", val_ecos_merged, help="Prevision + Ecossistema Starian")
             
             st.markdown("---")
             c_bar, c_pie = st.columns([1.5, 1])
@@ -190,34 +196,44 @@ if modo_visualizacao == "Análise LIB":
                 
                 if not df_filtrado_show.empty:
                     st.info(msg_filtro if filtro_ativo else "Listando Grupo Inteiro")
-                    # Colunas fixas conforme solicitado
-                    cols_view = [c for c in [c_cliente, c_porte, c_cidade, c_mercado, c_obras] if c in df.columns]
+                    # DEFINIÇÃO DE COLUNAS PARA EXIBIÇÃO (INCLUINDO AS NOVAS)
+                    colunas_desejadas = [c_cliente, c_porte, c_cidade, c_mercado, c_obras, c_plano, c_erp, c_upsell, c_data_ganho]
+                    # Filtra apenas as que existem no excel para não dar erro
+                    cols_view = [c for c in colunas_desejadas if c in df.columns]
+                    
                     st.dataframe(df_filtrado_show[cols_view], hide_index=True, use_container_width=True, height=300)
 
         except Exception as e:
-            st.error(f"Erro ao ler aba 'Clientes'. Verifique se o nome da aba está correto. Detalhe: {e}")
+            st.error(f"Erro ao ler aba 'Clientes'. Detalhe: {e}")
 
 # ==============================================================================
 # MODO 2: ANÁLISE LIB (PARCEIRO)
 # ==============================================================================
-elif modo_visualizacao == "Análise Prevision":
-    st.title("📊 Análise Base Clientes Prevision")
+elif modo_visualizacao == "Análise LIB":
+    st.title("📊 Análise Base Clientes LIB")
     
     if arquivo_carregado:
         try:
             # Tenta ler a aba 'Planilha1'
             df_parceiro = pd.read_excel(arquivo_carregado, sheet_name="Planilha1")
             
-            # --- DEFINIÇÃO DIRETA DAS COLUNAS (HARDCODED) ---
+            # --- COLUNAS BÁSICAS ---
             c_cliente_p = "Cliente"
             c_porte_p = "Porte"
             c_uf_p = "Estado"
             c_cidade_p = "Cidade"
             c_tipologia_p = "Tipologia"
             c_obras_p = "Obras Contratadas"
-            c_mutuo = "Cliente LIB" # Coluna que diz se já é cliente prevision
+            c_mutuo = "Cliente LIB" 
+            
+            # --- NOVAS COLUNAS PEDIDAS (LIB) ---
+            c_servico = "Serviço Vendido"
+            c_ano_proj = "Ano do Último Projeto"
+            c_contato = "Atual Contato"
+            c_solucoes = "Solucoes Starian"
+            c_fora_icp = "Fora ICP" # Coluna para o gráfico
 
-            # --- SELETOR DE PARAMETROS (Mantive pois é filtro dinâmico) ---
+            # --- SELETOR DE PARAMETROS ---
             st.sidebar.header("Parâmetros de Análise")
             todos_portes = df_parceiro[c_porte_p].dropna().unique().tolist()
             padrao_quentes = ['G1', 'G2', 'G3', 'M2', 'M3']
@@ -228,7 +244,7 @@ elif modo_visualizacao == "Análise Prevision":
             # --- CÁLCULOS ---
             total_base = len(df_parceiro)
             
-            # Identifica Clientes Mútuos
+            # Clientes Mútuos
             if c_mutuo in df_parceiro.columns:
                 df_parceiro['Is_Cliente'] = df_parceiro[c_mutuo].apply(is_true)
                 mutual_clients = df_parceiro[df_parceiro['Is_Cliente']]
@@ -237,7 +253,13 @@ elif modo_visualizacao == "Análise Prevision":
                 df_parceiro['Is_Cliente'] = False
                 qtd_mutuos = 0
             
-            # Identifica Oportunidades Quentes (Pelo Porte)
+            # Fora ICP
+            if c_fora_icp in df_parceiro.columns:
+                qtd_fora_icp = len(df_parceiro[df_parceiro[c_fora_icp].apply(is_true)])
+            else:
+                qtd_fora_icp = 0
+
+            # Oportunidades Quentes
             df_parceiro['Is_Quente'] = df_parceiro[c_porte_p].isin(portes_quentes)
             oportunidades_quentes = df_parceiro[df_parceiro['Is_Quente']]
             qtd_quentes = len(oportunidades_quentes)
@@ -246,19 +268,27 @@ elif modo_visualizacao == "Análise Prevision":
             st.divider()
             kp1, kp2, kp3 = st.columns(3)
             kp1.metric("Total Mapeado", total_base)
-            kp2.metric("ICPs", qtd_quentes)
-            kp3.metric("Clientes LIB", qtd_mutuos)
+            # Box de ajuda solicitada
+            kp2.metric("Oportunidades Quentes", qtd_quentes, help="ICP, Porte Médio+, Último contato com LIB em 24/25 e não é Cliente")
+            # Box de ajuda solicitada
+            kp3.metric("Clientes LIB", qtd_mutuos, help="Apenas Clientes Prevision + LIB")
             
             st.markdown("---")
             c1, c2 = st.columns(2)
             with c1:
-                st.subheader("Potencial da Base")
+                st.subheader("Visão Geral Base")
+                # Gráfico incluindo Fora ICP
                 dados_graf = pd.DataFrame({
-                    "Categoria": ["Clientes Prevision", "Leads Ideais LIB", "Clientes Atuais"],
-                    "Quantidade": [total_base, qtd_quentes, qtd_mutuos]
+                    "Categoria": ["Base Prevision", "Oportunidades Quentes", "Clientes Atuais", "Fora ICP"],
+                    "Quantidade": [total_base, qtd_quentes, qtd_mutuos, qtd_fora_icp]
                 })
-                fig_p = px.bar(dados_graf, x="Categoria", y="Quantidade", color="Categoria", text="Quantidade", color_discrete_sequence=["#1f77b4", "#2ca02c", "#ff7f0e"])
+                # Filtra se for zero para não poluir
+                dados_graf = dados_graf[dados_graf['Quantidade'] > 0]
+                
+                fig_p = px.bar(dados_graf, x="Categoria", y="Quantidade", color="Categoria", text="Quantidade", 
+                               color_discrete_sequence=["#1f77b4", "#2ca02c", "#ff7f0e", "#d62728"])
                 st.plotly_chart(fig_p, use_container_width=True)
+            
             with c2:
                 st.subheader("Distribuição por Porte")
                 contagem_porte = df_parceiro[c_porte_p].value_counts().reset_index()
@@ -270,7 +300,6 @@ elif modo_visualizacao == "Análise Prevision":
             st.markdown("---")
             st.subheader("Matriz Porte x Status")
             
-            # Prepara dados da Matriz (Sem Opp Quentes conforme pedido)
             grupos_lib = [("Total Mapeado", df_parceiro), ("Clientes LIB", mutual_clients)]
             lista_matriz_lib = []
             for nome, dff in grupos_lib:
@@ -282,7 +311,6 @@ elif modo_visualizacao == "Análise Prevision":
             
             if not df_matriz_source_lib.empty:
                 matriz_final_lib = pd.crosstab(df_matriz_source_lib['Porte'], df_matriz_source_lib['Status'])
-                # Ordena para Total ficar primeiro
                 cols = sorted(matriz_final_lib.columns.tolist())
                 if "Total Mapeado" in cols:
                     cols.remove("Total Mapeado")
@@ -346,7 +374,10 @@ elif modo_visualizacao == "Análise Prevision":
                     msg_filtro = f"Mapa: Estado {uf_clicada}"
 
             with st.expander(f"🔎 Detalhes da Base ({msg_filtro})", expanded=True):
-                cols_view = [c for c in [c_cliente_p, c_porte_p, c_uf_p, c_cidade_p, c_tipologia_p, c_obras_p] if c in df_filtrado_final.columns]
+                # DEFINIÇÃO DE COLUNAS PARA EXIBIÇÃO (INCLUINDO AS NOVAS)
+                colunas_desejadas = [c_cliente_p, c_porte_p, c_uf_p, c_cidade_p, c_tipologia_p, c_obras_p, c_servico, c_ano_proj, c_contato, c_solucoes]
+                cols_view = [c for c in colunas_desejadas if c in df_filtrado_final.columns]
+                
                 st.dataframe(df_filtrado_final[cols_view], hide_index=True, use_container_width=True)
 
         except Exception as e:
