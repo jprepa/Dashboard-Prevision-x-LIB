@@ -39,7 +39,7 @@ def is_true(val):
     return texto in aceitos
 
 # --- CARREGAMENTO DE DADOS ---
-NOME_ARQUIVO = "base_dados.xlsx"
+NOME_ARQUIVO = "Lib+Prevision.xlsx"
 
 st.sidebar.title("🎛️ Navegação")
 modo_visualizacao = st.sidebar.radio("Selecione a Visão:", ["Análise Prevision", "Análise LIB"])
