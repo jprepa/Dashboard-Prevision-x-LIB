@@ -1,6 +1,8 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
+import json
+from urllib.request import urlopen
 
 # --- CONFIGURAÇÃO GLOBAL ---
 st.set_page_config(page_title="Prevision X LIB", layout="wide")
@@ -18,30 +20,33 @@ div[data-testid="metric-container"] {
 </style>
 """, unsafe_allow_html=True)
 
-# --- FUNÇÕES AUXILIARES (BLINDAGEM DE DADOS) ---
+# --- FUNÇÕES AUXILIARES ---
+
+@st.cache_data
+def carregar_mapa_brasil():
+    """Baixa o GeoJSON dos estados do Brasil para desenhar o mapa."""
+    url = "https://raw.githubusercontent.com/codeforamerica/click_that_hood/master/public/data/brazil-states.geojson"
+    with urlopen(url) as response:
+        brazil_states = json.load(response)
+    return brazil_states
+
 def is_true(val):
-    # Converte para string, tira espaços extras e joga para minúsculo
     texto = str(val).strip().lower()
-    # Lista de valores aceitos como "Sim"
     aceitos = ['sim', 's', 'yes', 'y', 'verdadeiro', 'true', 'ativo', '1', '1.0']
     return texto in aceitos
 
 def get_index(lista_colunas, nomes_buscados):
-    """Procura se algum dos nomes_buscados existe na lista_colunas e retorna o índice."""
     if isinstance(nomes_buscados, str):
         nomes_buscados = [nomes_buscados]
-    
     for nome in nomes_buscados:
-        # Tenta achar exato
         if nome in lista_colunas:
             return lista_colunas.index(nome)
-        # Tenta achar ignorando maiúsculas/minúsculas (fallback)
         for i, col_real in enumerate(lista_colunas):
             if str(col_real).strip().lower() == str(nome).strip().lower():
                 return i
     return 0 
 
-# --- BARRA LATERAL: SELEÇÃO DE MODO ---
+# --- BARRA LATERAL ---
 st.sidebar.title("🎛️ Controle do Painel")
 modo_visualizacao = st.sidebar.radio("Qual visão você deseja?", ["Análise Prevision", "Análise LIB"])
 
@@ -58,18 +63,14 @@ if modo_visualizacao == "Análise Prevision":
     if uploaded_file is not None:
         try:
             excel_file = pd.ExcelFile(uploaded_file)
-            
             abas = excel_file.sheet_names
             idx_aba = abas.index("Clientes") if "Clientes" in abas else 0
-            
             selected_sheet = st.sidebar.selectbox("Escolha a aba:", abas, index=idx_aba, key="sheet_internal")
-            
             df = pd.read_excel(uploaded_file, sheet_name=selected_sheet)
             
             if df.empty:
                 st.error("Aba vazia.")
             else:
-                # --- MAPEAMENTO AUTOMÁTICO ---
                 st.sidebar.markdown("---")
                 st.sidebar.header("Mapear Colunas")
                 cols = df.columns.tolist()
@@ -82,47 +83,36 @@ if modo_visualizacao == "Análise Prevision":
                 
                 st.sidebar.markdown("---")
                 st.sidebar.info("Colunas de Flags (Sim/Não)")
-                
                 cols_flags = ["(Não usar)"] + cols
                 
                 def get_flag_index(target_names):
-                    # Procura o índice + 1 (pois temos o '(Não usar)' na frente)
                     idx_found = get_index(cols, target_names)
-                    # Se achou a coluna 0 mas o nome não bate com a busca (é falso positivo), retorna 0
                     if idx_found == 0:
-                        # Verifica se realmente a primeira coluna é uma das buscadas
                         first_col_name = cols[0]
                         if any(t.lower() == str(first_col_name).lower() for t in target_names):
                             return 1
                         return 0
                     return idx_found + 1
 
-                # LISTAS DE SINÔNIMOS ATUALIZADAS
                 idx_icp = get_flag_index(["ICP", "É ICP?", "Perfil Ideal"])
                 idx_hot = get_flag_index(["Prospect Quente", "Quente", "Hot", "Prioridade"])
                 idx_opp = get_flag_index(["Oportunidade", "Opp", "Negócio"])
-                
-                # AQUI ESTÁ A CORREÇÃO PRINCIPAL: Adicionei a variação exata com '?'
                 idx_prev = get_flag_index(["É Cliente Prevision?", "É Cliente Prevision", "Cliente Prevision", "Já é Cliente?"])
-                
                 idx_ecos = get_flag_index(["É cliente Ecossistema", "Ecossistema", "Cliente Ecossistema", "Parceiro"])
 
                 c_icp = st.sidebar.selectbox("Coluna Total ICPs:", cols_flags, index=idx_icp)
                 c_icp_quente = st.sidebar.selectbox("Coluna ICP Quente (18):", cols_flags, index=idx_hot)
                 c_oportunidade = st.sidebar.selectbox("Coluna Oportunidade (30):", cols_flags, index=idx_opp)
-                
-                # Verifica visualmente se ele selecionou certo
                 c_prev = st.sidebar.selectbox("Coluna Cliente Prevision (6):", cols_flags, index=idx_prev)
                 c_ecos = st.sidebar.selectbox("Coluna Cliente Ecossistema:", cols_flags, index=idx_ecos)
                 
-                # --- PROCESSAMENTO ---
+                # Processamento
                 val_total = len(df)
                 val_icp = len(df[df[c_icp].apply(is_true)]) if c_icp != "(Não usar)" else 0
                 val_hot = len(df[df[c_icp_quente].apply(is_true)]) if c_icp_quente != "(Não usar)" else 0
                 val_opp = len(df[df[c_oportunidade].apply(is_true)]) if c_oportunidade != "(Não usar)" else 0
                 val_prev = len(df[df[c_prev].apply(is_true)]) if c_prev != "(Não usar)" else 0
                 val_ecos_only = len(df[df[c_ecos].apply(is_true)]) if c_ecos != "(Não usar)" else 0
-                
                 val_ecos_merged = val_prev + val_ecos_only
 
                 config_grupos = [
@@ -147,56 +137,38 @@ if modo_visualizacao == "Análise Prevision":
                         resumo_barras['Categoria'].append(nome_grupo)
                         resumo_barras['Quantidade'].append(len(filtro))
                         resumo_barras['Lista_Clientes'].append(filtro[c_cliente].tolist())
-                        
                         for _, row in filtro.iterrows():
                             lista_matriz.append({'Porte': row[c_porte], 'Status': nome_grupo, 'Cliente': row[c_cliente]})
 
                 df_resumo = pd.DataFrame(resumo_barras)
                 df_matriz_source = pd.DataFrame(lista_matriz)
 
-                # --- VISUALIZAÇÃO ---
+                # Visualização
                 st.divider()
-                
                 k1, k2, k3, k4, k5 = st.columns(5)
                 k1.metric("Total Mapeado", val_total)
                 k2.metric("Oportunidades (Geral)", val_icp)
                 k3.metric("Oportunidades Quentes", val_hot)
                 k4.metric("Clientes Prevision", val_prev)
-                k5.metric("Clientes Ecossistema", val_ecos_merged, help="Clientes Prevision + Clientes Ecossistema")
+                k5.metric("Clientes Ecossistema", val_ecos_merged)
                 
                 st.markdown("---")
-                
                 c_bar, c_pie = st.columns([1.5, 1])
-                
                 with c_bar:
                     st.subheader("Funil Geral")
                     fig_bar = px.bar(df_resumo, x='Quantidade', y='Categoria', orientation='h', text='Quantidade', color='Categoria')
-                    fig_bar.update_layout(showlegend=False, xaxis_title=None, yaxis_title=None)
+                    fig_bar.update_layout(showlegend=False)
                     st.plotly_chart(fig_bar, use_container_width=True)
-                    
                 with c_pie:
                     st.subheader("Distribuição ICPs")
-                    # Evita erro na pizza se tudo for zero
-                    dados_pizza = [
-                        {"Label": "Oportunidades Quentes", "Valor": val_hot},
-                        {"Label": "Oportunidades (Geral)", "Valor": val_opp},
-                        {"Label": "Clientes Prevision", "Valor": val_prev}
-                    ]
-                    # Filtra valores zero para a pizza não ficar feia
+                    dados_pizza = [{"Label": "Oportunidades Quentes", "Valor": val_hot}, {"Label": "Oportunidades (Geral)", "Valor": val_opp}, {"Label": "Clientes Prevision", "Valor": val_prev}]
                     dados_pizza = [d for d in dados_pizza if d['Valor'] > 0]
-                    
                     if dados_pizza:
-                        fig_pie = px.pie(pd.DataFrame(dados_pizza), names='Label', values='Valor', hole=0.5, 
-                                         color_discrete_sequence=["#00CC96", "#AB63FA", "#FFA15A"])
-                        fig_pie.update_traces(textposition='inside', textinfo='value+label')
-                        fig_pie.update_layout(showlegend=False, margin=dict(t=0, b=0, l=0, r=0))
+                        fig_pie = px.pie(pd.DataFrame(dados_pizza), names='Label', values='Valor', hole=0.5, color_discrete_sequence=["#00CC96", "#AB63FA", "#FFA15A"])
                         st.plotly_chart(fig_pie, use_container_width=True)
-                    else:
-                        st.info("Sem dados suficientes para gerar o gráfico de pizza.")
                 
                 st.markdown("---")
                 c_matriz, c_lista = st.columns([1.5, 1])
-                
                 filtro_ativo = False
                 df_filtrado_show = pd.DataFrame()
                 msg_filtro = ""
@@ -216,11 +188,9 @@ if modo_visualizacao == "Análise Prevision":
                         try:
                             pts = selection.get('selection', {}).get('points', [])
                             if not pts and 'points' in selection: pts = selection['points']
-                            
                             if pts:
                                 p = pts[0]
-                                status_c = p['x']
-                                porte_c = p['y']
+                                status_c = p['x']; porte_c = p['y']
                                 msg_filtro = f"Filtro: {status_c} + {porte_c}"
                                 clientes_alvo = df_matriz_source[(df_matriz_source['Status']==status_c) & (df_matriz_source['Porte']==porte_c)]['Cliente'].unique()
                                 df_filtrado_show = df[df[c_cliente].isin(clientes_alvo)]
@@ -241,7 +211,7 @@ if modo_visualizacao == "Análise Prevision":
             st.error(f"Erro no Painel Prevision: {e}")
 
 # ==============================================================================
-# MODO 2: ANÁLISE LIB (PARCEIRO)
+# MODO 2: ANÁLISE LIB (PARCEIRO) - COM MAPA
 # ==============================================================================
 elif modo_visualizacao == "Análise LIB":
     st.title("📊 Painel Estratégico LIB")
@@ -249,12 +219,9 @@ elif modo_visualizacao == "Análise LIB":
     if uploaded_file is not None:
         try:
             excel_file = pd.ExcelFile(uploaded_file)
-            
             abas = excel_file.sheet_names
             idx_aba_p = abas.index("Planilha1") if "Planilha1" in abas else (1 if len(abas)>1 else 0)
-            
             selected_sheet = st.sidebar.selectbox("Escolha a aba:", abas, index=idx_aba_p, key="sheet_partner")
-            
             df_parceiro = pd.read_excel(uploaded_file, sheet_name=selected_sheet)
             
             if df_parceiro.empty:
@@ -266,62 +233,102 @@ elif modo_visualizacao == "Análise LIB":
                 
                 idx_cli_p = get_index(cols_p, "Cliente")
                 idx_prt_p = get_index(cols_p, "Porte")
+                idx_uf_p = get_index(cols_p, ["Estado", "UF", "U.F.", "State"]) # NOVO
                 
                 c_cliente_p = st.sidebar.selectbox("Coluna Cliente:", cols_p, index=idx_cli_p, key="cli_p")
-                c_porte_p = st.sidebar.selectbox("Coluna Porte (G1, G2...):", cols_p, index=idx_prt_p, key="porte_p")
-                
+                c_porte_p = st.sidebar.selectbox("Coluna Porte:", cols_p, index=idx_prt_p, key="porte_p")
+                c_uf_p = st.sidebar.selectbox("Coluna Estado (UF):", cols_p, index=idx_uf_p, key="uf_p") # NOVO
+
                 cols_mutuo_opts = ["(Não existe)"] + cols_p
                 def get_mutuo_index():
-                    target = ["Cliente LIB", "É Cliente Prevision", "Cliente Prevision", "É Cliente Prevision?"]
+                    target = ["Cliente LIB", "É Cliente Prevision", "Cliente Prevision"]
                     for t in target:
-                        if t in cols_p:
-                            return cols_p.index(t) + 1
+                        if t in cols_p: return cols_p.index(t) + 1
                     return 0
-                
                 c_mutuo = st.sidebar.selectbox("Coluna 'É Cliente Prevision?':", cols_mutuo_opts, index=get_mutuo_index(), key="mutuo_p")
                 
                 st.sidebar.markdown("---")
                 st.sidebar.subheader("Definição de 'Oportunidade Quente'")
-                
                 todos_portes = df_parceiro[c_porte_p].dropna().unique().tolist()
                 sugestao_quentes = ['G1', 'G2', 'G3', 'M2', 'M3']
                 padrao_selecionado = [p for p in sugestao_quentes if p in todos_portes]
-                
-                portes_quentes = st.sidebar.multiselect("Selecione quais Portes são 'Quentes':", options=todos_portes, default=padrao_selecionado)
+                portes_quentes = st.sidebar.multiselect("Portes Quentes:", options=todos_portes, default=padrao_selecionado)
                 
                 # --- CÁLCULOS ---
                 total_base = len(df_parceiro)
                 
+                # Identifica Clientes e Oportunidades
                 if c_mutuo != "(Não existe)":
-                    mutual_clients = df_parceiro[df_parceiro[c_mutuo].apply(is_true)]
+                    df_parceiro['Is_Cliente'] = df_parceiro[c_mutuo].apply(is_true)
+                    mutual_clients = df_parceiro[df_parceiro['Is_Cliente']]
                     qtd_mutuos = len(mutual_clients)
                 else:
+                    df_parceiro['Is_Cliente'] = False
                     qtd_mutuos = 0
                 
-                oportunidades_quentes = df_parceiro[df_parceiro[c_porte_p].isin(portes_quentes)]
+                df_parceiro['Is_Quente'] = df_parceiro[c_porte_p].isin(portes_quentes)
+                oportunidades_quentes = df_parceiro[df_parceiro['Is_Quente']]
                 qtd_quentes = len(oportunidades_quentes)
                 
                 # --- VISUAL ---
                 st.divider()
-                
                 kp1, kp2, kp3 = st.columns(3)
-                kp1.metric("Total Mapeado", total_base)
-                kp2.metric("Oportunidades Quentes", qtd_quentes, f"Portes: {', '.join(map(str, portes_quentes))}")
+                kp1.metric("Total Base Mapeada", total_base)
+                kp2.metric("Oportunidades Quentes", qtd_quentes)
                 kp3.metric("Clientes LIB", qtd_mutuos)
                 
                 st.markdown("---")
-                c1, c2 = st.columns(2)
                 
+                # --- NOVO: MAPA DO BRASIL ---
+                st.subheader("📍 Geografia das Oportunidades")
+                
+                # 1. Preparar dados para o mapa
+                if c_uf_p:
+                    # Agrupa por Estado e conta Clientes e Oportunidades
+                    df_mapa = df_parceiro.groupby(c_uf_p).apply(
+                        lambda x: pd.Series({
+                            'Total Clientes': x['Is_Cliente'].sum(),
+                            'Oportunidades Quentes': x['Is_Quente'].sum()
+                        })
+                    ).reset_index()
+                    
+                    # Renomeia para facilitar plotagem
+                    df_mapa.rename(columns={c_uf_p: 'UF'}, inplace=True)
+                    
+                    # Carrega GeoJSON
+                    with st.spinner("Carregando mapa..."):
+                        brazil_states = carregar_mapa_brasil()
+                    
+                    # Plota o Mapa
+                    # featureidkey='properties.sigla' é o padrão desse GeoJSON específico
+                    fig_map = px.choropleth(
+                        df_mapa,
+                        geojson=brazil_states,
+                        locations='UF',
+                        featureidkey='properties.sigla',
+                        color='Oportunidades Quentes', # A cor depende de quantas opps quentes tem
+                        hover_data=['Total Clientes', 'Oportunidades Quentes'],
+                        color_continuous_scale="Reds",
+                        title="Calor de Oportunidades Quentes por Estado"
+                    )
+                    # Ajusta o zoom para focar no Brasil
+                    fig_map.update_geos(fitbounds="locations", visible=False)
+                    fig_map.update_layout(margin={"r":0,"t":30,"l":0,"b":0})
+                    
+                    st.plotly_chart(fig_map, use_container_width=True)
+                else:
+                    st.warning("Selecione a coluna de Estado (UF) para ver o mapa.")
+
+                st.markdown("---")
+                c1, c2 = st.columns(2)
                 with c1:
                     st.subheader("Potencial da Base")
                     dados_graf = pd.DataFrame({
                         "Categoria": ["Base Prevision", "Oportunidades Quentes", "Clientes Atuais"],
                         "Quantidade": [total_base, qtd_quentes, qtd_mutuos]
                     })
-                    fig_p = px.bar(dados_graf, x="Categoria", y="Quantidade", color="Categoria", text="Quantidade",
-                                   color_discrete_sequence=["#1f77b4", "#2ca02c", "#ff7f0e"])
+                    fig_p = px.bar(dados_graf, x="Categoria", y="Quantidade", color="Categoria", text="Quantidade", color_discrete_sequence=["#1f77b4", "#2ca02c", "#ff7f0e"])
                     st.plotly_chart(fig_p, use_container_width=True)
-                    
                 with c2:
                     st.subheader("Distribuição por Porte")
                     contagem_porte = df_parceiro[c_porte_p].value_counts().reset_index()
@@ -329,9 +336,7 @@ elif modo_visualizacao == "Análise LIB":
                     fig_pie_p = px.pie(contagem_porte, names='Porte', values='Qtd', hole=0.4)
                     st.plotly_chart(fig_pie_p, use_container_width=True)
 
-                st.markdown("---")
                 with st.expander("🔎 Ver Lista de Oportunidades Quentes"):
-                    st.write(f"Listando empresas com porte: {', '.join(map(str, portes_quentes))}")
                     st.dataframe(oportunidades_quentes[[c_cliente_p, c_porte_p]], hide_index=True, use_container_width=True)
 
         except Exception as e:
@@ -339,4 +344,3 @@ elif modo_visualizacao == "Análise LIB":
 
 else:
     st.info("Selecione um arquivo.")
-
