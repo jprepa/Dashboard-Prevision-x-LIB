@@ -253,7 +253,7 @@ elif modo_visualizacao == "Análise Prevision":
             kp1, kp2, kp3 = st.columns(3)
             kp1.metric("Total Mapeado", total_base)
             kp2.metric("ICPs", qtd_quentes)
-            kp3.metric("Clientes LIB", qtd_mutuos, help="Apenas Clientes Prevision+Lib")
+            kp3.metric("Clientes LIB", qtd_mutuos, help="Apenas os Clientes Lib na base Prevision")
             
             st.markdown("---")
             c1, c2 = st.columns(2)
