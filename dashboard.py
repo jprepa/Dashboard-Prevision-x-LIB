@@ -130,7 +130,7 @@ if modo_visualizacao == "Análise LIB":
             k2.metric("ICPs", val_icp)
             k3.metric("Oportunidades Quentes", val_hot)
             k4.metric("Clientes Prevision", val_prev)
-            k5.metric("Clientes Ecossistema", val_ecos_merged)
+            k5.metric("Clientes Ecossistema Starian", val_ecos_merged)
             
             st.markdown("---")
             c_bar, c_pie = st.columns([1.5, 1])
