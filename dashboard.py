@@ -42,7 +42,7 @@ def is_true(val):
 NOME_ARQUIVO = "Lib+Prevision.xlsx"
 
 st.sidebar.title("🎛️ Navegação")
-modo_visualizacao = st.sidebar.radio("Selecione a Visão:", ["Análise LIB", "Análise Prevision"])
+modo_visualizacao = st.sidebar.radio("Selecione a Visão:", ["Análise Prevision", "Análise LIB"])
 st.sidebar.markdown("---")
 
 # Lógica Híbrida: Tenta carregar automático, senão pede upload
@@ -97,8 +97,8 @@ if modo_visualizacao == "Análise LIB":
                 ("Total ICPs", c_icp),
                 ("Oportunidades Quentes", c_icp_quente),
                 ("Oportunidades (Geral)", c_oportunidade),
-                ("Clientes Prevision", c_prev),
-                ("Clientes Ecossistema", c_ecos)
+                ("Clientes Ecossistema", c_ecos),
+                ("Clientes Prevision", c_prev)
             ]
             
             resumo_barras = {'Categoria': [], 'Quantidade': [], 'Lista_Clientes': []}
