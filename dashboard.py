@@ -211,7 +211,7 @@ if modo_visualizacao == "Análise Prevision":
             st.error(f"Erro no Painel Prevision: {e}")
 
 # ==============================================================================
-# MODO 2: ANÁLISE LIB (PARCEIRO) - COM MAPA + FILTRO
+# MODO 2: ANÁLISE LIB (PARCEIRO) - MATRIZ + NOVAS COLUNAS + MAPA
 # ==============================================================================
 elif modo_visualizacao == "Análise LIB":
     st.title("📊 Painel Estratégico LIB")
@@ -231,13 +231,23 @@ elif modo_visualizacao == "Análise LIB":
                 st.sidebar.header("Configuração da Base LIB")
                 cols_p = df_parceiro.columns.tolist()
                 
+                # --- AUTO-SELEÇÃO DE COLUNAS ---
                 idx_cli_p = get_index(cols_p, "Cliente")
                 idx_prt_p = get_index(cols_p, "Porte")
                 idx_uf_p = get_index(cols_p, ["Estado", "UF", "U.F.", "State"])
+                idx_cid_p = get_index(cols_p, ["Cidade", "City", "Município"])
+                idx_tip_p = get_index(cols_p, ["Tipologia", "Tipo", "Type"])
+                idx_obr_p = get_index(cols_p, ["Obras", "Qtd Obras", "Obras Con"])
                 
                 c_cliente_p = st.sidebar.selectbox("Coluna Cliente:", cols_p, index=idx_cli_p, key="cli_p")
                 c_porte_p = st.sidebar.selectbox("Coluna Porte:", cols_p, index=idx_prt_p, key="porte_p")
+                
+                # Novas Colunas para a Tabela
+                st.sidebar.markdown("##### Dados Adicionais")
                 c_uf_p = st.sidebar.selectbox("Coluna Estado (UF):", cols_p, index=idx_uf_p, key="uf_p")
+                c_cidade_p = st.sidebar.selectbox("Coluna Cidade:", cols_p, index=idx_cid_p, key="cid_p")
+                c_tipologia_p = st.sidebar.selectbox("Coluna Tipologia:", cols_p, index=idx_tip_p, key="tip_p")
+                c_obras_p = st.sidebar.selectbox("Coluna Qtd Obras:", cols_p, index=idx_obr_p, key="obr_p")
 
                 cols_mutuo_opts = ["(Não existe)"] + cols_p
                 def get_mutuo_index():
@@ -254,7 +264,7 @@ elif modo_visualizacao == "Análise LIB":
                 padrao_selecionado = [p for p in sugestao_quentes if p in todos_portes]
                 portes_quentes = st.sidebar.multiselect("Portes Quentes:", options=todos_portes, default=padrao_selecionado)
                 
-                # --- CÁLCULOS ---
+                # --- PROCESSAMENTO DOS DADOS ---
                 total_base = len(df_parceiro)
                 
                 if c_mutuo != "(Não existe)":
@@ -269,6 +279,22 @@ elif modo_visualizacao == "Análise LIB":
                 oportunidades_quentes = df_parceiro[df_parceiro['Is_Quente']]
                 qtd_quentes = len(oportunidades_quentes)
                 
+                # --- PREPARAÇÃO DA MATRIZ (AQUI ESTÁ A NOVIDADE) ---
+                # Categorias solicitadas: "Clientes Prevision" (Total Mapeado) e "Clientes LIB" (Mútuos)
+                # + "Oportunidades Quentes" (Para valor agregado)
+                grupos_lib = [
+                    ("Total Mapeado", df_parceiro), 
+                    ("Oportunidades Quentes", oportunidades_quentes),
+                    ("Clientes LIB", mutual_clients)
+                ]
+                
+                lista_matriz_lib = []
+                for nome, dff in grupos_lib:
+                    for _, row in dff.iterrows():
+                         lista_matriz_lib.append({'Porte': row[c_porte_p], 'Status': nome, 'Cliente': row[c_cliente_p]})
+                
+                df_matriz_source_lib = pd.DataFrame(lista_matriz_lib)
+
                 # --- VISUAL ---
                 st.divider()
                 kp1, kp2, kp3 = st.columns(3)
@@ -295,10 +321,27 @@ elif modo_visualizacao == "Análise LIB":
 
                 st.markdown("---")
                 
+                # --- SEÇÃO MATRIZ (NOVA) ---
+                st.subheader("Matriz: Porte x Categoria")
+                selection_matriz = None
+                
+                if not df_matriz_source_lib.empty:
+                    matriz_final_lib = pd.crosstab(df_matriz_source_lib['Porte'], df_matriz_source_lib['Status'])
+                    # Ordena colunas se possível
+                    cols_order = sorted(matriz_final_lib.columns.tolist())
+                    if "Total Mapeado" in cols_order:
+                        cols_order.remove("Total Mapeado")
+                        cols_order.insert(0, "Total Mapeado")
+                    matriz_final_lib = matriz_final_lib[cols_order]
+
+                    fig_heat_lib = px.imshow(matriz_final_lib, text_auto=True, aspect="auto", color_continuous_scale='Viridis')
+                    selection_matriz = st.plotly_chart(fig_heat_lib, use_container_width=True, on_select="rerun", selection_mode="points")
+                
+                st.markdown("---")
+                
                 # --- MAPA INTERATIVO ---
                 st.subheader("📍 Geografia das Oportunidades (Clique no Estado)")
-                
-                uf_selecionada = None
+                selection_mapa = None
                 
                 if c_uf_p:
                     df_mapa = df_parceiro.groupby(c_uf_p).apply(
@@ -342,36 +385,51 @@ elif modo_visualizacao == "Análise LIB":
                         clickmode='event+select'
                     )
                     
-                    # --- INTERATIVIDADE DO MAPA ---
-                    # selection_mode="points" pega o ponto (estado) clicado
-                    map_selection = st.plotly_chart(fig_map, use_container_width=True, on_select="rerun", selection_mode="points")
-                    
-                    # Tenta capturar qual estado foi clicado
-                    if map_selection and "selection" in map_selection and "points" in map_selection["selection"]:
-                         if map_selection["selection"]["points"]:
-                             # No Choropleth, o 'location' (ou 'x'/'y' dependendo da versão) guarda o ID do estado
-                             # Geralmente em px.choropleth com locations='UF', o ponto tem o campo 'location'
-                             ponto = map_selection["selection"]["points"][0]
-                             if 'location' in ponto:
-                                 uf_selecionada = ponto['location']
-                             elif 'x' in ponto: # Fallback
-                                 uf_selecionada = ponto['x']
-
+                    selection_mapa = st.plotly_chart(fig_map, use_container_width=True, on_select="rerun", selection_mode="points")
                 else:
                     st.warning("Selecione a coluna de Estado (UF) para ver o mapa.")
 
-                # --- LISTA FILTRADA ---
-                with st.expander("🔎 Ver Lista de Oportunidades Quentes", expanded=True):
+                # --- LÓGICA DE FILTRO UNIFICADA (MATRIZ + MAPA) ---
+                # Define qual filtro aplicar na tabela de detalhes
+                df_filtrado_final = df_parceiro.copy() # Começa com tudo
+                msg_filtro = "Mostrando base completa"
+
+                # 1. Verifica clique na Matriz
+                if selection_matriz and "selection" in selection_matriz and selection_matriz["selection"]["points"]:
+                    pts = selection_matriz["selection"]["points"][0]
+                    status_c = pts['x']
+                    porte_c = pts['y']
                     
-                    if uf_selecionada:
-                        st.info(f"📍 **Filtro Ativo: Estado {uf_selecionada}** (Clique no mapa novamente para limpar)")
-                        # Filtra apenas as oportunidades QUENTES daquele estado
-                        df_filtrado = oportunidades_quentes[oportunidades_quentes[c_uf_p] == uf_selecionada]
-                    else:
-                        st.write("Mostrando todas as oportunidades quentes (Clique no mapa para filtrar por Estado)")
-                        df_filtrado = oportunidades_quentes
+                    # Filtra clientes correspondentes
+                    clientes_alvo = df_matriz_source_lib[
+                        (df_matriz_source_lib['Status']==status_c) & 
+                        (df_matriz_source_lib['Porte']==porte_c)
+                    ]['Cliente'].unique()
                     
-                    st.dataframe(df_filtrado[[c_cliente_p, c_porte_p, c_uf_p]], hide_index=True, use_container_width=True)
+                    df_filtrado_final = df_filtrado_final[df_filtrado_final[c_cliente_p].isin(clientes_alvo)]
+                    msg_filtro = f"Matriz: {status_c} + {porte_c}"
+
+                # 2. Verifica clique no Mapa (Prioridade para refinar ou substituir)
+                # Se quiser que um anule o outro, use if/elif. Se quiser somar, use if/if.
+                # Vou usar if/elif para não dar conflito (o último clique manda é difícil rastrear sem session_state,
+                # então vou dar prioridade ao Mapa se ele estiver ativo).
+                
+                elif selection_mapa and "selection" in selection_mapa and selection_mapa["selection"]["points"]:
+                    pts = selection_mapa["selection"]["points"][0]
+                    uf_clicada = pts.get('location', pts.get('x'))
+                    
+                    if uf_clicada:
+                        df_filtrado_final = df_filtrado_final[df_filtrado_final[c_uf_p] == uf_clicada]
+                        msg_filtro = f"Mapa: Estado {uf_clicada}"
+
+                # --- TABELA DE DETALHES FINAL ---
+                with st.expander(f"🔎 Detalhes da Base ({msg_filtro})", expanded=True):
+                    # Seleciona colunas para exibir
+                    cols_to_show = [c_cliente_p, c_porte_p, c_uf_p, c_cidade_p, c_tipologia_p, c_obras_p]
+                    # Garante que as colunas existem no DF
+                    cols_to_show = [c for c in cols_to_show if c in df_filtrado_final.columns]
+                    
+                    st.dataframe(df_filtrado_final[cols_to_show], hide_index=True, use_container_width=True)
 
         except Exception as e:
             st.error(f"Erro no Painel LIB: {e}")
