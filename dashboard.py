@@ -278,7 +278,7 @@ elif modo_visualizacao == "Análise Prevision":
             grupos_lib = [
                 ("Total Mapeado", df_parceiro), 
                 ("Clientes LIB", mutual_clients),
-                ("Oportunidades Quentes", oportunidades_quentes) 
+                ("ICP", oportunidades_quentes) 
             ]
             lista_matriz_lib = []
             for nome, dff in grupos_lib:
