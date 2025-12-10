@@ -129,9 +129,9 @@ if modo_visualizacao == "Análise LIB":
             k1, k2, k3, k4, k5 = st.columns(5)
             k1.metric("Total Mapeado", val_total)
             k2.metric("ICPs", val_icp)
-            k3.metric("Oportunidades Quentes", val_hot, help="Critérios: ICP, Porte Médio+, Último contato com LIB em 24/25 e não é Cliente")
+            k3.metric("Oportunidades Quentes", val_hot, help="Critérios: ICP, Porte Médio+, Último contato com LIB em 24/25 e não é Cliente Prevision")
             k4.metric("Clientes Prevision", val_prev)
-            k5.metric("Clientes Ecossistema", val_ecos_merged, help="Critérios: Prevision + Ecossistema Starian")
+            k5.metric("Clientes Ecossistema", val_ecos_merged, help="Clientes Prevision + Ecossistema Starian")
             
             st.markdown("---")
             c_bar, c_pie = st.columns([1.5, 1])
