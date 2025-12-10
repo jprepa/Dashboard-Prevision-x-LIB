@@ -130,7 +130,7 @@ if modo_visualizacao == "Análise LIB":
             k2.metric("ICPs", val_icp)
             k3.metric("Oportunidades Quentes", val_hot)
             k4.metric("Clientes Prevision", val_prev)
-            k5.metric("Clientes Ecossistema Starian", val_ecos_merged)
+            k5.metric("Clientes Ecossistema", val_ecos_merged)
             
             st.markdown("---")
             c_bar, c_pie = st.columns([1.5, 1])
@@ -246,7 +246,7 @@ elif modo_visualizacao == "Análise Prevision":
             st.divider()
             kp1, kp2, kp3 = st.columns(3)
             kp1.metric("Total Mapeado", total_base)
-            kp2.metric("Leads Ideais", qtd_quentes)
+            kp2.metric("ICPs", qtd_quentes)
             kp3.metric("Clientes LIB", qtd_mutuos)
             
             st.markdown("---")
@@ -254,7 +254,7 @@ elif modo_visualizacao == "Análise Prevision":
             with c1:
                 st.subheader("Potencial da Base")
                 dados_graf = pd.DataFrame({
-                    "Categoria": ["Clientes Prevision", "Leads Ideais", "Clientes Atuais"],
+                    "Categoria": ["Clientes Prevision", "Leads Ideais LIB", "Clientes Atuais"],
                     "Quantidade": [total_base, qtd_quentes, qtd_mutuos]
                 })
                 fig_p = px.bar(dados_graf, x="Categoria", y="Quantidade", color="Categoria", text="Quantidade", color_discrete_sequence=["#1f77b4", "#2ca02c", "#ff7f0e"])
