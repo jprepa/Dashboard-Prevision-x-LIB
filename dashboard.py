@@ -45,7 +45,7 @@ st.sidebar.markdown("---")
 # Removida a verificação automática de arquivo local (os.path.exists).
 # Agora o upload é obrigatório para visualizar qualquer dado.
 st.sidebar.warning("🔒 Acesso Restrito")
-st.sidebar.info("Por motivos de segurança, é necessário realizar o upload da planilha para visualizar os dados.")
+st.sidebar.info("Por motivos de segurança, é necessário realizar o upload da planilha para visualizar os dados (Arquivo foi disponibilizado no Chat "Prevision |Lib" no Teams ")
 arquivo_carregado = st.sidebar.file_uploader("Faça upload da planilha:", type=["xlsx", "xls"])
 
 # ==============================================================================
@@ -198,7 +198,7 @@ if modo_visualizacao == "Análise LIB":
         except Exception as e:
             st.error(f"Erro ao ler aba 'Clientes'. Detalhe: {e}")
     else:
-         st.warning("⚠️ Aguardando upload da planilha para exibir Análise LIB.")
+         st.warning("⚠️ Aguardando upload da planilha para exibir Análise.")
 
 # ==============================================================================
 # MODO 2: ANÁLISE PREVISION (DADOS PARCEIRO - ABA PLANILHA1)
@@ -343,4 +343,5 @@ elif modo_visualizacao == "Análise Prevision":
         except Exception as e:
             st.error(f"Erro ao ler aba 'Planilha1'. Detalhe: {e}")
     else:
-        st.warning("⚠️ Aguardando upload da planilha para exibir Análise Prevision.")
+        st.warning("⚠️ Aguardando upload da planilha para exibir Análise.")
+
