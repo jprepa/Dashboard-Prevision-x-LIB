@@ -36,21 +36,17 @@ def is_true(val):
     aceitos = ['sim', 's', 'yes', 'y', 'verdadeiro', 'true', 'ativo', '1', '1.0']
     return texto in aceitos
 
-# --- CARREGAMENTO DE DADOS ---
-NOME_ARQUIVO = "Lib+Prevision.xlsx"
-
+# --- NAVEGAÇÃO E UPLOAD ---
 st.sidebar.title("🎛️ Navegação")
 modo_visualizacao = st.sidebar.radio("Selecione a Visão:", ["Análise LIB", "Análise Prevision"])
 st.sidebar.markdown("---")
 
-# Upload / Carregamento
-arquivo_carregado = None
-if os.path.exists(NOME_ARQUIVO):
-    arquivo_carregado = NOME_ARQUIVO
-    st.sidebar.success(f"📂 Dados carregados: {NOME_ARQUIVO}")
-else:
-    st.sidebar.warning(f"Arquivo '{NOME_ARQUIVO}' não encontrado.")
-    arquivo_carregado = st.sidebar.file_uploader("Faça upload da planilha:", type=["xlsx", "xls"])
+# --- ALTERAÇÃO DE SEGURANÇA ---
+# Removida a verificação automática de arquivo local (os.path.exists).
+# Agora o upload é obrigatório para visualizar qualquer dado.
+st.sidebar.warning("🔒 Acesso Restrito")
+st.sidebar.info("Por motivos de segurança, é necessário realizar o upload da planilha para visualizar os dados.")
+arquivo_carregado = st.sidebar.file_uploader("Faça upload da planilha:", type=["xlsx", "xls"])
 
 # ==============================================================================
 # MODO 1: ANÁLISE PREVISION (DADOS INTERNOS - ABA CLIENTES)
@@ -69,7 +65,7 @@ if modo_visualizacao == "Análise LIB":
             c_mercado = "Mercado de atuação"
             c_obras = "Obras Contratadas"
             
-            # Colunas Novas (Imagem Esquerda) - CORRIGIDO AQUI
+            # Colunas Novas (Imagem Esquerda)
             c_plano = "Plano"
             c_erp = "ERP"
             c_upsell = "Último Upsell" 
@@ -201,6 +197,8 @@ if modo_visualizacao == "Análise LIB":
 
         except Exception as e:
             st.error(f"Erro ao ler aba 'Clientes'. Detalhe: {e}")
+    else:
+         st.warning("⚠️ Aguardando upload da planilha para exibir Análise LIB.")
 
 # ==============================================================================
 # MODO 2: ANÁLISE PREVISION (DADOS PARCEIRO - ABA PLANILHA1)
@@ -221,7 +219,7 @@ elif modo_visualizacao == "Análise Prevision":
             c_obras_p = "Obras Contratadas"
             c_mutuo = "Cliente LIB"
             
-            # Colunas Novas (Imagem Direita) - CORRIGIDO AQUI
+            # Colunas Novas (Imagem Direita)
             c_servico = "Serviço vendido"
             c_ano_proj = "Ano do último projeto"
             c_contato = "Atual Contato"
@@ -344,6 +342,5 @@ elif modo_visualizacao == "Análise Prevision":
 
         except Exception as e:
             st.error(f"Erro ao ler aba 'Planilha1'. Detalhe: {e}")
-
-else:
-    st.info("Aguardando arquivo.")
+    else:
+        st.warning("⚠️ Aguardando upload da planilha para exibir Análise Prevision.")
